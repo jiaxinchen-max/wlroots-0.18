@@ -1,0 +1,3 @@
+git add .;git commit -m 'bug fix';git push
+cd wlroots/;git pull;cd ..;tar -zcf wlroots.tar.gz wlroots/;sha256sum wlroots.tar.gz;sudo mv wlroots.tar.gz /var/www/html/termux-packages/
+./build-package.sh -s wlroots
