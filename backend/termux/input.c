@@ -390,13 +390,20 @@ void termux_input_create_devices(struct wlr_termux_backend *backend) {
 	}
 	wlr_keyboard_init(&backend->keyboard->wlr_keyboard, &termux_keyboard_impl, "termux-keyboard");
 	backend->keyboard->backend = backend;
+	
+	/* Try to set up a basic keymap, but don't fail if it doesn't work in Termux */
 	struct xkb_context *xkb_ctx = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
-	struct xkb_keymap *keymap = xkb_keymap_new_from_names(xkb_ctx, NULL, XKB_KEYMAP_COMPILE_NO_FLAGS);
-	if (keymap) {
-		wlr_keyboard_set_keymap(&backend->keyboard->wlr_keyboard, keymap);
-		xkb_keymap_unref(keymap);
+	if (xkb_ctx) {
+		struct xkb_rule_names rules = {0};
+		struct xkb_keymap *keymap = xkb_keymap_new_from_names(xkb_ctx, &rules, XKB_KEYMAP_COMPILE_NO_FLAGS);
+		if (keymap) {
+			wlr_keyboard_set_keymap(&backend->keyboard->wlr_keyboard, keymap);
+			xkb_keymap_unref(keymap);
+		} else {
+			wlr_log(WLR_DEBUG, "termux: failed to create keymap, using default");
+		}
+		xkb_context_unref(xkb_ctx);
 	}
-	xkb_context_unref(xkb_ctx);
 	wlr_keyboard_set_repeat_info(&backend->keyboard->wlr_keyboard, 25, 600);
 	wl_signal_emit_mutable(&backend->backend.events.new_input, &backend->keyboard->wlr_keyboard.base);
 
