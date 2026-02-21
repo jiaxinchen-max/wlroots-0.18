@@ -90,7 +90,6 @@ static bool output_move_cursor(struct wlr_output *wlr_output, int x, int y) {
 
 static void output_destroy(struct wlr_output *wlr_output) {
 	struct wlr_termux_output *output = termux_output_from_output(wlr_output);
-	wlr_output_finish(wlr_output);
 	wl_list_remove(&output->link);
 	termux_render_disconnect();
 	free(output);
