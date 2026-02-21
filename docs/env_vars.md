@@ -3,7 +3,7 @@ wlroots reads these environment variables
 # wlroots specific
 
 * *WLR_BACKENDS*: comma-separated list of backends to use (available backends:
-  libinput, drm, wayland, x11, headless)
+  libinput, drm, wayland, x11, headless, termux)
 * *WLR_NO_HARDWARE_CURSORS*: set to 1 to use software cursors instead of
   hardware cursors
 * *WLR_XWAYLAND*: specifies the path to an Xwayland binary to be used (instead
@@ -43,6 +43,39 @@ wlroots reads these environment variables
 ## X11 backend
 
 * *WLR_X11_OUTPUTS*: when using the X11 backend specifies the number of outputs
+
+## Termux backend
+
+* *WLR_TERMUX_OUTPUTS*: number of termux outputs (default: 1).
+* *WLR_TERMUX_WIDTH*: width of each output in pixels (default: 1280). Set to
+  match the display client's surface/buffer width to avoid scaling or padding.
+* *WLR_TERMUX_HEIGHT*: height of each output in pixels (default: 720). Set to
+  match the display client's surface/buffer height to avoid scaling or padding.
+
+Resolution flow: wlroots passes these dimensions to libtermux-render
+(setScreenConfig); the display client creates a shared buffer with that size.
+After connect, the Wayland output mode is set to the **actual buffer size**
+returned by the library (LorieBuffer), so the compositor output and the buffer
+stay the same and no extra scaling, cropping or padding is done.
+
+To run a compositor (e.g. tinywl) with the termux backend and show output in
+termux-display-client: start the display server (termux-display-client), then
+run the compositor with `WLR_BACKENDS=termux` and launch clients with the same
+Wayland display. Example — start compositor and mousepad in one go:
+
+```sh
+WLR_BACKENDS=termux tinywl -s "mousepad"
+```
+
+Or start the compositor in one terminal, then in another (same `WAYLAND_DISPLAY`):
+
+```sh
+# Terminal 1
+WLR_BACKENDS=termux tinywl
+
+# Terminal 2 (use the WAYLAND_DISPLAY value printed by tinywl, e.g. wayland-1)
+WAYLAND_DISPLAY=wayland-1 mousepad
+```
 
 ## gles2 renderer
 

@@ -36,6 +36,8 @@
 #include <wlr/backend/x11.h>
 #endif
 
+#include <wlr/backend/termux.h>
+
 #define WAIT_SESSION_TIMEOUT 10000 // ms
 
 void wlr_backend_init(struct wlr_backend *backend,
@@ -240,6 +242,38 @@ static struct wlr_backend *attempt_headless_backend(struct wl_event_loop *loop) 
 	return backend;
 }
 
+static struct wlr_backend *attempt_termux_backend(struct wl_event_loop *loop) {
+	struct wlr_backend *backend = wlr_termux_backend_create(loop, NULL);
+	if (backend == NULL) {
+		return NULL;
+	}
+
+	size_t outputs = parse_outputs_env("WLR_TERMUX_OUTPUTS");
+	unsigned int width = 1280, height = 720;
+	const char *w = getenv("WLR_TERMUX_WIDTH");
+	const char *h = getenv("WLR_TERMUX_HEIGHT");
+	if (w) {
+		char *end;
+		int v = (int)strtol(w, &end, 10);
+		if (*end == '\0' && v > 0) {
+			width = (unsigned int)v;
+		}
+	}
+	if (h) {
+		char *end;
+		int v = (int)strtol(h, &end, 10);
+		if (*end == '\0' && v > 0) {
+			height = (unsigned int)v;
+		}
+	}
+	/* 60 Hz */
+	for (size_t i = 0; i < outputs; ++i) {
+		wlr_termux_add_output(backend, width, height, 60000);
+	}
+
+	return backend;
+}
+
 static struct wlr_backend *attempt_drm_backend(struct wlr_backend *backend, struct wlr_session *session) {
 #if WLR_HAS_DRM_BACKEND
 	struct wlr_device *gpus[8];
@@ -305,6 +339,8 @@ static bool attempt_backend_by_name(struct wl_event_loop *loop,
 		backend = attempt_x11_backend(loop, NULL);
 	} else if (strcmp(name, "headless") == 0) {
 		backend = attempt_headless_backend(loop);
+	} else if (strcmp(name, "termux") == 0) {
+		backend = attempt_termux_backend(loop);
 	} else if (strcmp(name, "drm") == 0 || strcmp(name, "libinput") == 0) {
 		// DRM and libinput need a session
 		if (*session_ptr == NULL) {
