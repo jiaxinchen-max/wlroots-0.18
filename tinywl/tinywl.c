@@ -309,9 +309,6 @@ static void server_new_input(struct wl_listener *listener, void *data) {
 		wlr_log(WLR_INFO, "tinywl: adding touch device to cursor");
 		/* Add touch device to cursor so it can control the pointer */
 		wlr_cursor_attach_input_device(server->cursor, device);
-		/* Also add touch capability to seat */
-		wlr_seat_set_capabilities(server->seat, 
-			wlr_seat_get_capabilities(server->seat) | WL_SEAT_CAPABILITY_TOUCH);
 		break;
 	default:
 		wlr_log(WLR_INFO, "tinywl: unknown input device type %d", device->type);
@@ -323,6 +320,10 @@ static void server_new_input(struct wl_listener *listener, void *data) {
 	uint32_t caps = WL_SEAT_CAPABILITY_POINTER;
 	if (!wl_list_empty(&server->keyboards)) {
 		caps |= WL_SEAT_CAPABILITY_KEYBOARD;
+	}
+	/* Add touch capability since we have touch devices in Termux */
+	if (device->type == WLR_INPUT_DEVICE_TOUCH) {
+		caps |= WL_SEAT_CAPABILITY_TOUCH;
 	}
 	wlr_seat_set_capabilities(server->seat, caps);
 }
