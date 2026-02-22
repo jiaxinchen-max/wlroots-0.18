@@ -680,11 +680,6 @@ static void xdg_toplevel_map(struct wl_listener *listener, void *data) {
 		wlr_log(WLR_INFO, "tinywl: calling wlr_output_schedule_frame for output %s", output->wlr_output->name);
 		wlr_output_schedule_frame(output->wlr_output);
 		wlr_log(WLR_INFO, "tinywl: wlr_output_schedule_frame completed, needs_frame=%d", output->wlr_output->needs_frame);
-		
-		/* Also damage the surface to ensure it needs rendering */
-		struct wlr_surface *surface = toplevel->xdg_toplevel->base->surface;
-		wlr_surface_damage_whole(surface);
-		wlr_log(WLR_INFO, "tinywl: damaged surface, needs_frame=%d", output->wlr_output->needs_frame);
 	}
 }
 
