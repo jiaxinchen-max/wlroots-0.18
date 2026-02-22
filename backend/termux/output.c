@@ -77,7 +77,14 @@ static bool output_commit(struct wlr_output *wlr_output, const struct wlr_output
 	commit_count++;
 	
 	if (!output_test(wlr_output, state)) return false;
-	if (output_pending_enabled(wlr_output, state)) {
+	
+	bool pending_enabled = output_pending_enabled(wlr_output, state);
+	if (should_log) {
+		wlr_log(WLR_INFO, "termux: output enabled=%s, pending_enabled=%s", 
+			wlr_output->enabled ? "true" : "false", pending_enabled ? "true" : "false");
+	}
+	
+	if (pending_enabled) {
 		if (should_log) {
 			wlr_log(WLR_INFO, "termux: output is pending enabled, copying buffer");
 		}
@@ -92,10 +99,6 @@ static bool output_commit(struct wlr_output *wlr_output, const struct wlr_output
 		};
 		output_defer_present(wlr_output, present_event);
 		
-		/* Always emit frame event after successful commit to signal frame completion */
-		wlr_log(WLR_INFO, "termux: emitting frame event after commit");
-		wl_signal_emit_mutable(&wlr_output->events.frame, wlr_output);
-		
 		/* Schedule next frame only when compositor needs it (damage/frame callbacks).
 		 * On first enable, schedule one frame so the initial content is drawn. */
 		if (!wlr_output->enabled) {
@@ -103,6 +106,10 @@ static bool output_commit(struct wlr_output *wlr_output, const struct wlr_output
 			wlr_output_schedule_frame(wlr_output);
 		}
 	}
+	
+	/* Always emit frame event after any commit to signal frame completion */
+	wlr_log(WLR_INFO, "termux: emitting frame event after commit");
+	wl_signal_emit_mutable(&wlr_output->events.frame, wlr_output);
 	return true;
 }
 
@@ -164,6 +171,9 @@ struct wlr_output *wlr_termux_add_output(struct wlr_backend *backend,
 	output->wlr_output.enabled = true;
 	wlr_output_set_name(&output->wlr_output, "TERMUX-1");
 	wlr_output_set_description(&output->wlr_output, "Termux display client");
+	wlr_log(WLR_INFO, "termux: output enabled=%s, size=%dx%d", 
+		output->wlr_output.enabled ? "true" : "false",
+		output->wlr_output.width, output->wlr_output.height);
 
 	wl_list_insert(&termux->outputs, &output->link);
 	if (termux->started) {
