@@ -81,16 +81,28 @@ static void *present_thread_func(void *data) {
 		if (present_buffer->buffer) {
 			struct wlr_buffer *buffer = present_buffer->buffer;
 			void *data = NULL;
-			uint32_t format;
-			size_t stride;
+			uint32_t format = 0;
+			size_t stride = 0;
+			bool ok = false;
 			
 			if (wlr_buffer_begin_data_ptr_access(buffer, WLR_BUFFER_DATA_PTR_ACCESS_READ, &data, &format, &stride)) {
-				bool ok = termux_render_push_frame(data, stride);
+				ok = termux_render_push_frame(data, stride) == 0;
 				wlr_buffer_end_data_ptr_access(buffer);
-				
-				wlr_log(WLR_DEBUG, "termux: async buffer copy result: %s", ok ? "success" : "failed");
+			} else {
+				/* Try SHM fallback */
+				struct wlr_shm_attributes shm;
+				if (wlr_buffer_get_shm(buffer, &shm)) {
+					size_t s = (shm.stride > 0 ? (size_t)shm.stride : (size_t)buffer->width * 4)
+						* (size_t)shm.height;
+					void *ptr = mmap(NULL, s, PROT_READ, MAP_SHARED, shm.fd, shm.offset);
+					if (ptr != MAP_FAILED) {
+						ok = termux_render_push_frame(ptr, (size_t)(shm.stride > 0 ? shm.stride : buffer->width * 4)) == 0;
+						munmap(ptr, s);
+					}
+				}
 			}
 			
+			wlr_log(WLR_DEBUG, "termux: async buffer copy result: %s", ok ? "success" : "failed");
 			wlr_buffer_unlock(buffer);
 		}
 		
@@ -136,43 +148,6 @@ static bool output_test(struct wlr_output *wlr_output, const struct wlr_output_s
 	return true;
 }
 
-static bool copy_buffer_to_lorie(struct wlr_termux_output *output, const struct wlr_output_state *state) {
-	(void)output;
-	if (!(state->committed & WLR_OUTPUT_STATE_BUFFER) || !state->buffer) {
-		wlr_log(WLR_DEBUG, "termux: no buffer to copy (committed=0x%x, buffer=%p)", 
-			state->committed, (void*)state->buffer);
-		return true;
-	}
-	if (!termux_render_connected()) {
-		wlr_log(WLR_ERROR, "termux: render not connected, cannot copy buffer");
-		return false;
-	}
-	wlr_log(WLR_DEBUG, "termux: copying buffer %dx%d", state->buffer->width, state->buffer->height);
-	struct wlr_buffer *buf = state->buffer;
-	void *data = NULL;
-	uint32_t format = 0;
-	size_t stride = 0;
-	bool ok = false;
-	if (wlr_buffer_begin_data_ptr_access(buf, WLR_BUFFER_DATA_PTR_ACCESS_READ, &data, &format, &stride)) {
-		ok = termux_render_push_frame(data, stride) == 0;
-		wlr_buffer_end_data_ptr_access(buf);
-	} else {
-		struct wlr_shm_attributes shm;
-		if (wlr_buffer_get_shm(buf, &shm)) {
-			size_t s = (shm.stride > 0 ? (size_t)shm.stride : (size_t)buf->width * 4)
-				* (size_t)shm.height;
-			void *ptr = mmap(NULL, s, PROT_READ, MAP_SHARED, shm.fd, shm.offset);
-			if (ptr != MAP_FAILED) {
-				ok = termux_render_push_frame(ptr, (size_t)(shm.stride > 0 ? shm.stride : buf->width * 4)) == 0;
-				munmap(ptr, s);
-			}
-		}
-	}
-	if (!ok) {
-		wlr_log(WLR_DEBUG, "termux: could not read buffer for push_frame");
-	}
-	return true;
-}
 
 static bool output_commit(struct wlr_output *wlr_output, const struct wlr_output_state *state) {
 	struct wlr_termux_output *output = termux_output_from_output(wlr_output);
