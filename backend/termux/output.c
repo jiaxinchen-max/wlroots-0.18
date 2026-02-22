@@ -107,9 +107,9 @@ static bool output_commit(struct wlr_output *wlr_output, const struct wlr_output
 		}
 	}
 	
-	/* Always emit frame event after any commit to signal frame completion */
-	wlr_log(WLR_INFO, "termux: emitting frame event after commit");
-	wl_signal_emit_mutable(&wlr_output->events.frame, wlr_output);
+	/* Always send frame event after any commit to signal frame completion */
+	wlr_log(WLR_INFO, "termux: sending frame event after commit");
+	wlr_output_send_frame(wlr_output);
 	return true;
 }
 

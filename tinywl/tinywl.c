@@ -571,7 +571,7 @@ static void output_frame(struct wl_listener *listener, void *data) {
 	static int frame_count = 0;
 	frame_count++;
 	
-	wlr_log(WLR_INFO, "tinywl: output_frame called (frame %d)", frame_count);
+	wlr_log(WLR_ERROR, "*** TINYWL: OUTPUT_FRAME CALLED (frame %d) ***", frame_count);
 
 	struct wlr_scene_output *scene_output = wlr_scene_get_scene_output(
 		scene, output->wlr_output);
@@ -658,6 +658,7 @@ static void server_new_output(struct wl_listener *listener, void *data) {
 	/* Sets up a listener for the frame event. */
 	output->frame.notify = output_frame;
 	wl_signal_add(&wlr_output->events.frame, &output->frame);
+	wlr_log(WLR_INFO, "tinywl: registered frame event listener for output %s", wlr_output->name);
 
 	/* Sets up a listener for the state request event. */
 	output->request_state.notify = output_request_state;
