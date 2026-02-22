@@ -613,8 +613,22 @@ static void output_frame(struct wl_listener *listener, void *data) {
 	wlr_log(WLR_INFO, "tinywl: scene tree has %d children total", scene_children);
 
 	/* Render the scene if needed and commit the output */
+	/* Check output state before commit */
+	wlr_log(WLR_INFO, "tinywl: output needs_frame=%s", output->wlr_output->needs_frame ? "true" : "false");
+	wlr_log(WLR_INFO, "tinywl: output enabled=%s", output->wlr_output->enabled ? "true" : "false");
+	
+	/* Force damage the entire output to ensure something needs rendering */
+	wlr_log(WLR_INFO, "tinywl: forcing full output damage");
+	wlr_scene_output_damage_whole(scene_output);
+	
 	bool committed = wlr_scene_output_commit(scene_output, NULL);
 	wlr_log(WLR_INFO, "tinywl: scene_output_commit returned %s", committed ? "true" : "false");
+	
+	if (!committed) {
+		wlr_log(WLR_ERROR, "tinywl: scene_output_commit failed - checking output state");
+		wlr_log(WLR_ERROR, "tinywl: output->enabled=%s", output->wlr_output->enabled ? "true" : "false");
+		wlr_log(WLR_ERROR, "tinywl: output->current_mode=%p", (void*)output->wlr_output->current_mode);
+	}
 
 	struct timespec now;
 	clock_gettime(CLOCK_MONOTONIC, &now);
@@ -740,6 +754,11 @@ static void server_new_output(struct wl_listener *listener, void *data) {
 		wlr_log(WLR_INFO, "tinywl: added blue background (%dx%d) to scene successfully", 
 			wlr_output->width, wlr_output->height);
 		wlr_scene_node_lower_to_bottom(&bg_rect->node);
+		
+		/* Ensure background is enabled and visible */
+		wlr_scene_node_set_enabled(&bg_rect->node, true);
+		wlr_log(WLR_INFO, "tinywl: background node enabled=%s", 
+			bg_rect->node.enabled ? "true" : "false");
 		
 		/* Schedule initial frame */
 		wlr_output_schedule_frame(wlr_output);
