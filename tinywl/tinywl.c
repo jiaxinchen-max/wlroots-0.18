@@ -480,6 +480,7 @@ static void process_cursor_motion(struct tinywl_server *server, uint32_t time) {
 	}
 }
 
+__attribute__((unused))
 static void server_cursor_motion(struct wl_listener *listener, void *data) {
 	/* This event is forwarded by the cursor when a pointer emits a _relative_
 	 * pointer motion event (i.e. a delta) */
@@ -496,6 +497,7 @@ static void server_cursor_motion(struct wl_listener *listener, void *data) {
 	process_cursor_motion(server, event->time_msec);
 }
 
+__attribute__((unused))
 static void server_cursor_motion_absolute(
 		struct wl_listener *listener, void *data) {
 	/* This event is forwarded by the cursor when a pointer emits an _absolute_
@@ -512,6 +514,7 @@ static void server_cursor_motion_absolute(
 	process_cursor_motion(server, event->time_msec);
 }
 
+__attribute__((unused))
 static void server_cursor_button(struct wl_listener *listener, void *data) {
 	/* This event is forwarded by the cursor when a pointer emits a button
 	 * event. */
@@ -534,6 +537,7 @@ static void server_cursor_button(struct wl_listener *listener, void *data) {
 	}
 }
 
+__attribute__((unused))
 static void server_cursor_axis(struct wl_listener *listener, void *data) {
 	/* This event is forwarded by the cursor when a pointer emits an axis event,
 	 * for example when you move the scroll wheel. */
@@ -542,10 +546,11 @@ static void server_cursor_axis(struct wl_listener *listener, void *data) {
 	struct wlr_pointer_axis_event *event = data;
 	/* Notify the client with pointer focus of the axis event. */
 	wlr_seat_pointer_notify_axis(server->seat,
-			event->time_msec, event->orientation, event->delta,
-			event->delta_discrete, event->source, event->relative_direction);
+		event->time_msec, event->orientation, event->delta,
+		event->delta_discrete, event->source, event->relative_direction);
 }
 
+__attribute__((unused))
 static void server_cursor_frame(struct wl_listener *listener, void *data) {
 	/* This event is forwarded by the cursor when a pointer emits an frame
 	 * event. Frame events are sent after regular pointer events to group
