@@ -1000,6 +1000,7 @@ int main(int argc, char *argv[]) {
 	 * And more comments are sprinkled throughout the notify functions above.
 	 */
 	server.cursor_mode = TINYWL_CURSOR_PASSTHROUGH;
+	/* Temporarily commented out cursor input handling for testing
 	server.cursor_motion.notify = server_cursor_motion;
 	wl_signal_add(&server.cursor->events.motion, &server.cursor_motion);
 	server.cursor_motion_absolute.notify = server_cursor_motion_absolute;
@@ -1011,6 +1012,7 @@ int main(int argc, char *argv[]) {
 	wl_signal_add(&server.cursor->events.axis, &server.cursor_axis);
 	server.cursor_frame.notify = server_cursor_frame;
 	wl_signal_add(&server.cursor->events.frame, &server.cursor_frame);
+	*/
 
 	/*
 	 * Configures a seat, which is a single "seat" at which a user sits and
