@@ -166,7 +166,11 @@ static void handle_lorie_mouse(struct wlr_termux_backend *backend,
 
 static void handle_lorie_touch(struct wlr_termux_backend *backend,
 		const lorie_touch_ev *ev, uint32_t time_msec) {
+	wlr_log(WLR_INFO, "termux: touch event - type=%d, id=%d, x=%d, y=%d", 
+		ev->type, ev->id, ev->x, ev->y);
+		
 	if (!backend->touch) {
+		wlr_log(WLR_DEBUG, "termux: no touch device available");
 		return;
 	}
 	struct wlr_touch *touch = &backend->touch->wlr_touch;
@@ -371,6 +375,7 @@ void termux_input_create_devices(struct wlr_termux_backend *backend) {
 	wlr_pointer_init(&backend->pointer->wlr_pointer, &termux_pointer_impl, "termux-pointer");
 	backend->pointer->wlr_pointer.output_name = strdup(output_name);
 	backend->pointer->backend = backend;
+	wlr_log(WLR_INFO, "termux: emitting new_input signal for pointer");
 	wl_signal_emit_mutable(&backend->backend.events.new_input, &backend->pointer->wlr_pointer.base);
 
 	backend->touch = calloc(1, sizeof(*backend->touch));
@@ -385,6 +390,7 @@ void termux_input_create_devices(struct wlr_termux_backend *backend) {
 	wlr_touch_init(&backend->touch->wlr_touch, &termux_touch_impl, "termux-touch");
 	backend->touch->wlr_touch.output_name = strdup(output_name);
 	backend->touch->backend = backend;
+	wlr_log(WLR_INFO, "termux: emitting new_input signal for touch");
 	wl_signal_emit_mutable(&backend->backend.events.new_input, &backend->touch->wlr_touch.base);
 
 	backend->keyboard = calloc(1, sizeof(*backend->keyboard));
@@ -417,6 +423,7 @@ void termux_input_create_devices(struct wlr_termux_backend *backend) {
 		xkb_context_unref(xkb_ctx);
 	}
 	wlr_keyboard_set_repeat_info(&backend->keyboard->wlr_keyboard, 25, 600);
+	wlr_log(WLR_INFO, "termux: emitting new_input signal for keyboard");
 	wl_signal_emit_mutable(&backend->backend.events.new_input, &backend->keyboard->wlr_keyboard.base);
 
 	backend->input_event = wl_event_loop_add_fd(backend->event_loop, conn_fd,

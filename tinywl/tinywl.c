@@ -306,7 +306,12 @@ static void server_new_input(struct wl_listener *listener, void *data) {
 		server_new_pointer(server, device);
 		break;
 	case WLR_INPUT_DEVICE_TOUCH:
-		wlr_log(WLR_INFO, "tinywl: touch device detected (not handled in tinywl)");
+		wlr_log(WLR_INFO, "tinywl: adding touch device to cursor");
+		/* Add touch device to cursor so it can control the pointer */
+		wlr_cursor_attach_input_device(server->cursor, device);
+		/* Also add touch capability to seat */
+		wlr_seat_set_capabilities(server->seat, 
+			wlr_seat_get_capabilities(server->seat) | WL_SEAT_CAPABILITY_TOUCH);
 		break;
 	default:
 		wlr_log(WLR_INFO, "tinywl: unknown input device type %d", device->type);
