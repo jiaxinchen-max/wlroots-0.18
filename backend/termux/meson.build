@@ -10,3 +10,5 @@ wlr_files += files(
   'output.c',
   'termux_render.c',
 )
+
+features += { 'termux-backend': true }
