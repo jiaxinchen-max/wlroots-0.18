@@ -1036,9 +1036,10 @@ int main(int argc, char *argv[]) {
 	 * HiDPI support). */
 	server.cursor_mgr = wlr_xcursor_manager_create(NULL, 24);
 	
-	/* Set a default cursor image */
-	wlr_log(WLR_INFO, "tinywl: setting default cursor image");
-	wlr_xcursor_manager_set_cursor_image(server.cursor_mgr, "default", server.cursor);
+	/* Load cursor theme and set default cursor */
+	wlr_log(WLR_INFO, "tinywl: loading cursor theme");
+	wlr_xcursor_manager_load(server.cursor_mgr, 1.0);
+	wlr_cursor_set_xcursor(server.cursor, server.cursor_mgr, "default");
 
 	/*
 	 * wlr_cursor *only* displays an image on screen. It does not move around
