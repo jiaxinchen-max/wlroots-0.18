@@ -7,6 +7,7 @@
 #include <unistd.h>
 #include <wayland-server-core.h>
 #include <wlr/backend.h>
+#include <wlr/backend/termux.h>
 #include <wlr/render/allocator.h>
 #include <wlr/render/wlr_renderer.h>
 #include <wlr/types/wlr_cursor.h>
@@ -692,8 +693,13 @@ static void server_new_output(struct wl_listener *listener, void *data) {
 		wlr_log(WLR_INFO, "tinywl: blue background added at %dx%d", wlr_output->width, wlr_output->height);
 	}
 
-	/* Let compositor handle cursor rendering naturally */
-	wlr_log(WLR_INFO, "tinywl: cursor rendering will be handled by compositor");
+	/* Enable software cursor for Termux backend since it has no hardware cursor support */
+	if (wlr_backend_is_termux(server->backend)) {
+		wlr_log(WLR_INFO, "tinywl: enabling software cursors for Termux backend");
+		wlr_output_lock_software_cursors(wlr_output, true);
+	} else {
+		wlr_log(WLR_INFO, "tinywl: using default cursor rendering for backend");
+	}
 }
 
 static void xdg_toplevel_map(struct wl_listener *listener, void *data) {
