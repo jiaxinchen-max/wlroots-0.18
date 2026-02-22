@@ -26,9 +26,9 @@
 
 /* Match termux-display-client include/render.h eventType enum */
 #define LORIE_EVENT_SCREEN_SIZE 4
-#define LORIE_EVENT_TOUCH   6
-#define LORIE_EVENT_MOUSE  7
-#define LORIE_EVENT_KEY    8
+#define LORIE_EVENT_TOUCH   5
+#define LORIE_EVENT_MOUSE  6
+#define LORIE_EVENT_KEY    7
 #define LORIE_EVENT_UNICODE 10
 
 /* Layout matches lorieEvent.touch / .mouse in render.h (no Android deps here) */
