@@ -729,7 +729,22 @@ static void server_new_output(struct wl_listener *listener, void *data) {
 	struct wlr_output_layout_output *l_output = wlr_output_layout_add_auto(server->output_layout,
 		wlr_output);
 	struct wlr_scene_output *scene_output = wlr_scene_output_create(server->scene, wlr_output);
+	if (!scene_output) {
+		wlr_log(WLR_ERROR, "tinywl: failed to create scene_output!");
+		return;
+	}
+	wlr_log(WLR_INFO, "tinywl: created scene_output successfully (%p)", (void*)scene_output);
+	
 	wlr_scene_output_layout_add_output(server->scene_layout, l_output, scene_output);
+	wlr_log(WLR_INFO, "tinywl: added scene_output to layout");
+	
+	/* Test scene_output retrieval immediately */
+	struct wlr_scene_output *test_scene_output = wlr_scene_get_scene_output(server->scene, wlr_output);
+	if (test_scene_output) {
+		wlr_log(WLR_INFO, "tinywl: scene_output retrieval test successful (%p)", (void*)test_scene_output);
+	} else {
+		wlr_log(WLR_ERROR, "tinywl: scene_output retrieval test FAILED!");
+	}
 	
 	/* Add background when first output is created */
 	static bool background_added = false;
