@@ -664,6 +664,9 @@ static void xdg_toplevel_map(struct wl_listener *listener, void *data) {
 	/* Called when the surface is mapped, or ready to display on-screen. */
 	struct tinywl_toplevel *toplevel = wl_container_of(listener, toplevel, map);
 
+	wlr_log(WLR_INFO, "tinywl: xdg_toplevel mapped! Title: %s", 
+		toplevel->xdg_toplevel->title ? toplevel->xdg_toplevel->title : "(no title)");
+
 	wl_list_insert(&toplevel->server->toplevels, &toplevel->link);
 
 	focus_toplevel(toplevel, toplevel->xdg_toplevel->base->surface);
@@ -672,6 +675,8 @@ static void xdg_toplevel_map(struct wl_listener *listener, void *data) {
 static void xdg_toplevel_unmap(struct wl_listener *listener, void *data) {
 	/* Called when the surface is unmapped, and should no longer be shown. */
 	struct tinywl_toplevel *toplevel = wl_container_of(listener, toplevel, unmap);
+	
+	wlr_log(WLR_INFO, "tinywl: xdg_toplevel unmapped");
 
 	/* Reset the cursor mode if the grabbed toplevel was unmapped. */
 	if (toplevel == toplevel->server->grabbed_toplevel) {
@@ -685,11 +690,15 @@ static void xdg_toplevel_commit(struct wl_listener *listener, void *data) {
 	/* Called when a new surface state is committed. */
 	struct tinywl_toplevel *toplevel = wl_container_of(listener, toplevel, commit);
 
+	wlr_log(WLR_INFO, "tinywl: xdg_toplevel commit, initial_commit=%d", 
+		toplevel->xdg_toplevel->base->initial_commit);
+
 	if (toplevel->xdg_toplevel->base->initial_commit) {
 		/* When an xdg_surface performs an initial commit, the compositor must
 		 * reply with a configure so the client can map the surface. tinywl
 		 * configures the xdg_toplevel with 0,0 size to let the client pick the
 		 * dimensions itself. */
+		wlr_log(WLR_INFO, "tinywl: sending initial configure to toplevel");
 		wlr_xdg_toplevel_set_size(toplevel->xdg_toplevel, 0, 0);
 	}
 }
