@@ -591,6 +591,9 @@ static void output_frame(struct wl_listener *listener, void *data) {
 	wlr_log(WLR_INFO, "tinywl: calling wlr_scene_output_commit");
 	bool commit_result = wlr_scene_output_commit(scene_output, NULL);
 	wlr_log(WLR_INFO, "tinywl: wlr_scene_output_commit returned %s", commit_result ? "true" : "false");
+	
+	/* Render software cursors on top of the scene */
+	wlr_output_render_software_cursors(output->wlr_output, NULL);
 
 	struct timespec now;
 	clock_gettime(CLOCK_MONOTONIC, &now);
@@ -1040,11 +1043,6 @@ int main(int argc, char *argv[]) {
 	wlr_log(WLR_INFO, "tinywl: loading cursor theme");
 	wlr_xcursor_manager_load(server.cursor_mgr, 1.0);
 	wlr_cursor_set_xcursor(server.cursor, server.cursor_mgr, "default");
-	
-	/* Create cursor scene node for rendering */
-	wlr_log(WLR_INFO, "tinywl: creating cursor scene node");
-	struct wlr_scene_node *cursor_scene = &wlr_scene_xcursor_manager_create(server.scene, server.cursor_mgr)->node;
-	wlr_scene_node_set_enabled(cursor_scene, true);
 
 	/*
 	 * wlr_cursor *only* displays an image on screen. It does not move around
