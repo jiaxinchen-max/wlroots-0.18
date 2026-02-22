@@ -680,7 +680,14 @@ static void server_new_output(struct wl_listener *listener, void *data) {
 	 * would let the user configure it. */
 	struct wlr_output_mode *mode = wlr_output_preferred_mode(wlr_output);
 	if (mode != NULL) {
+		wlr_log(WLR_INFO, "tinywl: using preferred mode %dx%d@%dmHz", 
+			mode->width, mode->height, mode->refresh);
 		wlr_output_state_set_mode(&state, mode);
+	} else {
+		/* For backends without modes (like Termux), set a custom mode */
+		wlr_log(WLR_INFO, "tinywl: no preferred mode, setting custom mode %dx%d@60Hz", 
+			wlr_output->width, wlr_output->height);
+		wlr_output_state_set_custom_mode(&state, wlr_output->width, wlr_output->height, 60000);
 	}
 
 	/* Atomically applies the new output state. */
