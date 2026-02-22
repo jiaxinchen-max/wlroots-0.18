@@ -658,29 +658,15 @@ static void server_new_output(struct wl_listener *listener, void *data) {
 		wlr_output);
 	struct wlr_scene_output *scene_output = wlr_scene_output_create(server->scene, wlr_output);
 	wlr_scene_output_layout_add_output(server->scene_layout, l_output, scene_output);
-
-	/* Test rendering by scheduling an initial frame */
-	wlr_log(WLR_INFO, "tinywl: output setup complete, scheduling test frame");
-	wlr_output_schedule_frame(wlr_output);
 }
 
 static void xdg_toplevel_map(struct wl_listener *listener, void *data) {
 	/* Called when the surface is mapped, or ready to display on-screen. */
 	struct tinywl_toplevel *toplevel = wl_container_of(listener, toplevel, map);
 
-	wlr_log(WLR_INFO, "tinywl: xdg_toplevel mapped, requesting frame");
-
 	wl_list_insert(&toplevel->server->toplevels, &toplevel->link);
 
 	focus_toplevel(toplevel, toplevel->xdg_toplevel->base->surface);
-
-	/* Request a frame to render the newly mapped window */
-	struct tinywl_output *output;
-	wl_list_for_each(output, &toplevel->server->outputs, link) {
-		wlr_log(WLR_INFO, "tinywl: calling wlr_output_schedule_frame for output %s", output->wlr_output->name);
-		wlr_output_schedule_frame(output->wlr_output);
-		wlr_log(WLR_INFO, "tinywl: wlr_output_schedule_frame completed, needs_frame=%d", output->wlr_output->needs_frame);
-	}
 }
 
 static void xdg_toplevel_unmap(struct wl_listener *listener, void *data) {

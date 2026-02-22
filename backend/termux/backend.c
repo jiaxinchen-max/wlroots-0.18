@@ -16,9 +16,9 @@ static bool backend_start(struct wlr_backend *wlr_backend) {
 	wl_list_for_each(output, &backend->outputs, link) {
 		wl_signal_emit_mutable(&backend->backend.events.new_output, &output->wlr_output);
 	}
-	/* Temporarily commented out input device creation for testing */
-	// termux_input_create_devices(backend);
-	wlr_log(WLR_INFO, "termux backend: skipping input device creation for testing");
+	/* Re-enable input device creation */
+	termux_input_create_devices(backend);
+	wlr_log(WLR_INFO, "termux backend: input device creation enabled");
 	backend->started = true;
 	return true;
 }

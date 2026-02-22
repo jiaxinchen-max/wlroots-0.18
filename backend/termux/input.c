@@ -334,8 +334,11 @@ static int termux_input_readable(int fd, uint32_t mask, void *data) {
 	} else if (type == LORIE_EVENT_SCREEN_SIZE) {
 		const lorie_screen_size_ev *ev = (const lorie_screen_size_ev *)buf;
 		if (ev->width > 0 && ev->height > 0) {
+			/* Read the data to keep the protocol in sync, but don't trigger backend reset */
 			drain_fd(fd, ev->name_size);
-			schedule_resize_reinit(backend, (int)ev->width, (int)ev->height, (int)ev->framerate);
+			wlr_log(WLR_INFO, "termux: windowChanged event received (%dx%d@%d), data read but backend reset skipped", 
+				(int)ev->width, (int)ev->height, (int)ev->framerate);
+			/* Note: schedule_resize_reinit() call removed to prevent backend reset */
 		}
 	}
 	return 0;
