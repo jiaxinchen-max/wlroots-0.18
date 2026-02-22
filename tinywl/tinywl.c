@@ -293,14 +293,23 @@ static void server_new_input(struct wl_listener *listener, void *data) {
 	struct tinywl_server *server =
 		wl_container_of(listener, server, new_input);
 	struct wlr_input_device *device = data;
+	
+	wlr_log(WLR_INFO, "tinywl: new input device type %d", device->type);
+	
 	switch (device->type) {
 	case WLR_INPUT_DEVICE_KEYBOARD:
+		wlr_log(WLR_INFO, "tinywl: adding keyboard device");
 		server_new_keyboard(server, device);
 		break;
 	case WLR_INPUT_DEVICE_POINTER:
+		wlr_log(WLR_INFO, "tinywl: adding pointer device");
 		server_new_pointer(server, device);
 		break;
+	case WLR_INPUT_DEVICE_TOUCH:
+		wlr_log(WLR_INFO, "tinywl: touch device detected (not handled in tinywl)");
+		break;
 	default:
+		wlr_log(WLR_INFO, "tinywl: unknown input device type %d", device->type);
 		break;
 	}
 	/* We need to let the wlr_seat know what our capabilities are, which is
