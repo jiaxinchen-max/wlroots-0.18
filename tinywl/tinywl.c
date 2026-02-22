@@ -617,9 +617,9 @@ static void output_frame(struct wl_listener *listener, void *data) {
 	wlr_log(WLR_INFO, "tinywl: output needs_frame=%s", output->wlr_output->needs_frame ? "true" : "false");
 	wlr_log(WLR_INFO, "tinywl: output enabled=%s", output->wlr_output->enabled ? "true" : "false");
 	
-	/* Force damage the entire output to ensure something needs rendering */
-	wlr_log(WLR_INFO, "tinywl: forcing full output damage");
-	wlr_scene_output_damage_whole(scene_output);
+	/* Force frame scheduling to ensure rendering happens */
+	wlr_log(WLR_INFO, "tinywl: forcing frame scheduling");
+	wlr_output_schedule_frame(output->wlr_output);
 	
 	bool committed = wlr_scene_output_commit(scene_output, NULL);
 	wlr_log(WLR_INFO, "tinywl: scene_output_commit returned %s", committed ? "true" : "false");
