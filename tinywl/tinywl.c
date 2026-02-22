@@ -587,18 +587,9 @@ static void output_frame(struct wl_listener *listener, void *data) {
 		scene, output->wlr_output);
 
 	if (!scene_output) {
-		wlr_log(WLR_ERROR, "tinywl: no scene_output found for output %s (%p)", 
+		wlr_log(WLR_ERROR, "tinywl: no scene_output found for output %s (%p) - this is a bug!", 
 			output->wlr_output->name, (void*)output->wlr_output);
-		
-		/* Try to recreate scene_output */
-		wlr_log(WLR_INFO, "tinywl: attempting to recreate scene_output");
-		scene_output = wlr_scene_output_create(scene, output->wlr_output);
-		if (scene_output) {
-			wlr_log(WLR_INFO, "tinywl: successfully recreated scene_output (%p)", (void*)scene_output);
-		} else {
-			wlr_log(WLR_ERROR, "tinywl: failed to recreate scene_output");
-			return;
-		}
+		return;
 	} else {
 		wlr_log(WLR_INFO, "tinywl: found scene_output (%p)", (void*)scene_output);
 	}
@@ -700,27 +691,7 @@ static void server_new_output(struct wl_listener *listener, void *data) {
 		wlr_log(WLR_INFO, "tinywl: frame event listener list is not empty, registration seems successful");
 	}
 	
-	/* Test frame event emission immediately after registration */
-	wlr_log(WLR_INFO, "tinywl: testing frame event emission immediately after registration");
-	printf("TINYWL: Testing immediate frame emission\n");
-	fflush(stdout);
-	
-	/* Debug the listener setup */
-	wlr_log(WLR_INFO, "tinywl: listener notify function = %p", (void*)output->frame.notify);
-	wlr_log(WLR_INFO, "tinywl: expected function = %p", (void*)output_frame);
-	
-	/* Try calling the function directly first */
-	wlr_log(WLR_INFO, "tinywl: calling output_frame directly");
-	printf("TINYWL: Calling output_frame directly\n");
-	fflush(stdout);
-	output_frame(&output->frame, wlr_output);
-	printf("TINYWL: Direct call completed\n");
-	fflush(stdout);
-	
-	/* Now try signal emission */
-	wl_signal_emit_mutable(&wlr_output->events.frame, wlr_output);
-	printf("TINYWL: Immediate frame emission completed\n");
-	fflush(stdout);
+	/* Frame event emission test will be done after scene_output is created */
 
 	/* Sets up a listener for the state request event. */
 	output->request_state.notify = output_request_state;
@@ -761,25 +732,38 @@ static void server_new_output(struct wl_listener *listener, void *data) {
 		wlr_log(WLR_ERROR, "tinywl: scene_output retrieval test FAILED!");
 	}
 	
-	/* Add background when first output is created */
-	static bool background_added = false;
-	if (!background_added) {
-		wlr_log(WLR_INFO, "tinywl: adding background for first output");
-		struct wlr_scene_rect *bg_rect = wlr_scene_rect_create(&server->scene->tree, 
-			wlr_output->width, wlr_output->height, (float[4]){0.2f, 0.2f, 0.8f, 1.0f});
-		if (bg_rect) {
-			wlr_log(WLR_INFO, "tinywl: added blue background (%dx%d) to scene successfully", 
-				wlr_output->width, wlr_output->height);
-			wlr_scene_node_lower_to_bottom(&bg_rect->node);
-			
-			/* Schedule initial frame */
-			wlr_output_schedule_frame(wlr_output);
-			wlr_log(WLR_INFO, "tinywl: scheduled initial frame for background");
-		} else {
-			wlr_log(WLR_ERROR, "tinywl: failed to create background rectangle");
-		}
-		background_added = true;
+	/* Always add background for debugging */
+	wlr_log(WLR_INFO, "tinywl: adding background for output %s", wlr_output->name);
+	struct wlr_scene_rect *bg_rect = wlr_scene_rect_create(&server->scene->tree, 
+		wlr_output->width, wlr_output->height, (float[4]){0.2f, 0.2f, 0.8f, 1.0f});
+	if (bg_rect) {
+		wlr_log(WLR_INFO, "tinywl: added blue background (%dx%d) to scene successfully", 
+			wlr_output->width, wlr_output->height);
+		wlr_scene_node_lower_to_bottom(&bg_rect->node);
+		
+		/* Schedule initial frame */
+		wlr_output_schedule_frame(wlr_output);
+		wlr_log(WLR_INFO, "tinywl: scheduled initial frame for background");
+	} else {
+		wlr_log(WLR_ERROR, "tinywl: failed to create background rectangle");
 	}
+	
+	/* Now test frame event emission with scene_output properly created */
+	wlr_log(WLR_INFO, "tinywl: testing frame event emission after scene setup");
+	printf("TINYWL: Testing frame emission with scene_output ready\n");
+	fflush(stdout);
+	
+	/* Debug the listener setup */
+	wlr_log(WLR_INFO, "tinywl: listener notify function = %p", (void*)output->frame.notify);
+	wlr_log(WLR_INFO, "tinywl: expected function = %p", (void*)output_frame);
+	
+	/* Try calling the function directly first */
+	wlr_log(WLR_INFO, "tinywl: calling output_frame directly");
+	printf("TINYWL: Calling output_frame directly\n");
+	fflush(stdout);
+	output_frame(&output->frame, wlr_output);
+	printf("TINYWL: Direct call completed\n");
+	fflush(stdout);
 }
 
 static void xdg_toplevel_map(struct wl_listener *listener, void *data) {

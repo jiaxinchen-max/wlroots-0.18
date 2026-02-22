@@ -79,6 +79,23 @@
 - [ ] 输入功能测试
 - [ ] 完整功能测试
 
+### 4. Addon冲突修复 (2026-02-22 18:19)
+**问题**: 程序abort，错误信息 "Can't have two addons of the same type with the same owner"
+
+**根本原因**: 
+- 在`scene_output`创建之前直接调用`output_frame`
+- `output_frame`中尝试重新创建`scene_output`导致addon冲突
+
+**修复措施**:
+- 移除`output_frame`中的`scene_output`重新创建逻辑
+- 将frame事件测试移到`scene_output`和背景创建之后
+- 将背景创建从"仅第一个输出"改为"总是创建"以便调试
+
+**修改文件**: `tinywl/tinywl.c` 
+- 行 ~587: 移除scene_output重新创建逻辑
+- 行 ~694-714: 移动frame事件测试位置  
+- 行 ~755-773: 改为总是创建背景
+
 ---
 创建时间: 2026-02-22
 目的: 调试tinywl在termux环境下的启动问题
