@@ -1040,6 +1040,11 @@ int main(int argc, char *argv[]) {
 	wlr_log(WLR_INFO, "tinywl: loading cursor theme");
 	wlr_xcursor_manager_load(server.cursor_mgr, 1.0);
 	wlr_cursor_set_xcursor(server.cursor, server.cursor_mgr, "default");
+	
+	/* Create cursor scene node for rendering */
+	wlr_log(WLR_INFO, "tinywl: creating cursor scene node");
+	struct wlr_scene_node *cursor_scene = &wlr_scene_xcursor_manager_create(server.scene, server.cursor_mgr)->node;
+	wlr_scene_node_set_enabled(cursor_scene, true);
 
 	/*
 	 * wlr_cursor *only* displays an image on screen. It does not move around
