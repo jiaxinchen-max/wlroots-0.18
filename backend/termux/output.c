@@ -130,13 +130,9 @@ static int present_complete_handler(int fd, uint32_t mask, void *data) {
 		return 0;
 	}
 	
-	/* Only send frame event if there's actual content to render */
-	if (output->wlr_output.needs_frame) {
-		wlr_log(WLR_DEBUG, "termux: present completed, sending frame event (needs_frame=true)");
-		wlr_output_send_frame(&output->wlr_output);
-	} else {
-		wlr_log(WLR_DEBUG, "termux: present completed, no frame needed (needs_frame=false)");
-	}
+	/* Send frame event, but let scene graph decide if actual rendering is needed */
+	wlr_log(WLR_DEBUG, "termux: present completed, sending frame event");
+	wlr_output_send_frame(&output->wlr_output);
 	
 	return 0;
 }
@@ -186,10 +182,14 @@ static bool output_commit(struct wlr_output *wlr_output, const struct wlr_output
 		if (should_log) {
 			wlr_log(WLR_INFO, "termux: queued buffer for async present");
 		}
+		
+		wlr_log(WLR_DEBUG, "termux: output_commit returning true (async with buffer)");
+		return true;
+	} else {
+		/* No buffer to commit, but still successful */
+		wlr_log(WLR_DEBUG, "termux: output_commit returning true (no buffer)");
+		return true;
 	}
-	
-	wlr_log(WLR_DEBUG, "termux: output_commit returning true (async)");
-	return true;
 }
 
 static bool output_set_cursor(struct wlr_output *wlr_output, struct wlr_buffer *buffer, int hx, int hy) {

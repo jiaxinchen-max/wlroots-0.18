@@ -563,11 +563,15 @@ static void output_frame(struct wl_listener *listener, void *data) {
 	struct tinywl_output *output = wl_container_of(listener, output, frame);
 	struct wlr_scene *scene = output->server->scene;
 
+	wlr_log(WLR_INFO, "tinywl: output_frame called");
+
 	struct wlr_scene_output *scene_output = wlr_scene_get_scene_output(
 		scene, output->wlr_output);
 
 	/* Render the scene if needed and commit the output */
-	wlr_scene_output_commit(scene_output, NULL);
+	wlr_log(WLR_INFO, "tinywl: calling wlr_scene_output_commit");
+	bool commit_result = wlr_scene_output_commit(scene_output, NULL);
+	wlr_log(WLR_INFO, "tinywl: wlr_scene_output_commit returned %s", commit_result ? "true" : "false");
 
 	struct timespec now;
 	clock_gettime(CLOCK_MONOTONIC, &now);
