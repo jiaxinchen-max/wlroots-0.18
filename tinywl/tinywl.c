@@ -565,6 +565,11 @@ static void server_cursor_frame(struct wl_listener *listener, void *data) {
 static void output_frame(struct wl_listener *listener, void *data) {
 	/* This function is called every time an output is ready to display a frame,
 	 * generally at the output's refresh rate (e.g. 60Hz). */
+	
+	/* Immediate logging to catch any calls */
+	printf("*** TINYWL: OUTPUT_FRAME CALLED ***\n");
+	fflush(stdout);
+	
 	struct tinywl_output *output = wl_container_of(listener, output, frame);
 	struct wlr_scene *scene = output->server->scene;
 
@@ -572,6 +577,8 @@ static void output_frame(struct wl_listener *listener, void *data) {
 	frame_count++;
 	
 	wlr_log(WLR_ERROR, "*** TINYWL: OUTPUT_FRAME CALLED (frame %d) ***", frame_count);
+	printf("*** TINYWL: OUTPUT_FRAME PROCESSING (frame %d) ***\n", frame_count);
+	fflush(stdout);
 
 	struct wlr_scene_output *scene_output = wlr_scene_get_scene_output(
 		scene, output->wlr_output);
@@ -658,7 +665,15 @@ static void server_new_output(struct wl_listener *listener, void *data) {
 	/* Sets up a listener for the frame event. */
 	output->frame.notify = output_frame;
 	wl_signal_add(&wlr_output->events.frame, &output->frame);
-	wlr_log(WLR_INFO, "tinywl: registered frame event listener for output %s", wlr_output->name);
+	wlr_log(WLR_INFO, "tinywl: registered frame event listener for output %s (listener=%p, notify=%p)", 
+		wlr_output->name, (void*)&output->frame, (void*)output->frame.notify);
+	
+	/* Test if the listener is properly linked */
+	if (wl_list_empty(&wlr_output->events.frame.listener_list)) {
+		wlr_log(WLR_ERROR, "tinywl: frame event listener list is empty after registration!");
+	} else {
+		wlr_log(WLR_INFO, "tinywl: frame event listener list is not empty, registration seems successful");
+	}
 
 	/* Sets up a listener for the state request event. */
 	output->request_state.notify = output_request_state;
