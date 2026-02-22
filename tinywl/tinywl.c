@@ -568,7 +568,10 @@ static void output_frame(struct wl_listener *listener, void *data) {
 	struct tinywl_output *output = wl_container_of(listener, output, frame);
 	struct wlr_scene *scene = output->server->scene;
 
-	wlr_log(WLR_INFO, "tinywl: output_frame called for %s", output->wlr_output->name);
+	static int frame_count = 0;
+	frame_count++;
+	
+	wlr_log(WLR_INFO, "tinywl: output_frame called (frame %d)", frame_count);
 
 	struct wlr_scene_output *scene_output = wlr_scene_get_scene_output(
 		scene, output->wlr_output);
@@ -995,8 +998,22 @@ int main(int argc, char *argv[]) {
 	server.scene_layout = wlr_scene_attach_output_layout(server.scene, server.output_layout);
 	
 	/* Add a simple background color for testing */
-	wlr_scene_rect_create(&server.scene->tree, 1024, 768, (float[4]){0.2f, 0.2f, 0.8f, 1.0f});
-	wlr_log(WLR_INFO, "tinywl: added blue background (1024x768) to scene");
+	struct wlr_scene_rect *bg_rect = wlr_scene_rect_create(&server.scene->tree, 1024, 768, (float[4]){0.2f, 0.2f, 0.8f, 1.0f});
+	if (bg_rect) {
+		wlr_log(WLR_INFO, "tinywl: added blue background (1024x768) to scene successfully");
+		/* Make sure the background is at the bottom */
+		wlr_scene_node_lower_to_bottom(&bg_rect->node);
+		
+		/* Request initial frame after adding background */
+		struct wlr_termux_output *output;
+		wl_list_for_each(output, &server.outputs, link) {
+			wlr_output_schedule_frame(&output->wlr_output);
+			wlr_log(WLR_INFO, "tinywl: scheduled initial frame for background");
+			break;
+		}
+	} else {
+		wlr_log(WLR_ERROR, "tinywl: failed to create background rectangle");
+	}
 
 	/* Set up xdg-shell version 3. The xdg-shell is a Wayland protocol which is
 	 * used for application windows. For more detail on shells, refer to

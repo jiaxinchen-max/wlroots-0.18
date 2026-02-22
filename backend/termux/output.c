@@ -31,11 +31,15 @@ static bool output_test(struct wlr_output *wlr_output, const struct wlr_output_s
 static bool copy_buffer_to_lorie(struct wlr_termux_output *output, const struct wlr_output_state *state) {
 	(void)output;
 	if (!(state->committed & WLR_OUTPUT_STATE_BUFFER) || !state->buffer) {
+		wlr_log(WLR_DEBUG, "termux: no buffer to copy (committed=0x%x, buffer=%p)", 
+			state->committed, (void*)state->buffer);
 		return true;
 	}
 	if (!termux_render_connected()) {
-		return true;
+		wlr_log(WLR_ERROR, "termux: render not connected, cannot copy buffer");
+		return false;
 	}
+	wlr_log(WLR_DEBUG, "termux: copying buffer %dx%d", state->buffer->width, state->buffer->height);
 	struct wlr_buffer *buf = state->buffer;
 	void *data = NULL;
 	uint32_t format = 0;
@@ -64,23 +68,37 @@ static bool copy_buffer_to_lorie(struct wlr_termux_output *output, const struct 
 
 static bool output_commit(struct wlr_output *wlr_output, const struct wlr_output_state *state) {
 	struct wlr_termux_output *output = termux_output_from_output(wlr_output);
-	wlr_log(WLR_DEBUG, "termux: output_commit called, state committed=0x%x", state->committed);
+	static int commit_count = 0;
+	bool should_log = (commit_count % 60 == 0);
+	
+	if (should_log) {
+		wlr_log(WLR_INFO, "termux: output_commit called, state committed=0x%x (commit %d)", state->committed, commit_count);
+	}
+	commit_count++;
 	
 	if (!output_test(wlr_output, state)) return false;
 	if (output_pending_enabled(wlr_output, state)) {
-		wlr_log(WLR_DEBUG, "termux: output is pending enabled, copying buffer");
+		if (should_log) {
+			wlr_log(WLR_INFO, "termux: output is pending enabled, copying buffer");
+		}
 		bool buffer_copied = copy_buffer_to_lorie(output, state);
-		wlr_log(WLR_DEBUG, "termux: buffer copy result: %s", buffer_copied ? "success" : "failed");
+		if (should_log || !buffer_copied) {
+			wlr_log(WLR_INFO, "termux: buffer copy result: %s", buffer_copied ? "success" : "failed");
+		}
 		
 		struct wlr_output_event_present present_event = {
 			.commit_seq = wlr_output->commit_seq + 1,
 			.presented = true,
 		};
 		output_defer_present(wlr_output, present_event);
+		
+		/* Always emit frame event after successful commit to signal frame completion */
+		wl_signal_emit_mutable(&wlr_output->events.frame, wlr_output);
+		
 		/* Schedule next frame only when compositor needs it (damage/frame callbacks).
 		 * On first enable, schedule one frame so the initial content is drawn. */
 		if (!wlr_output->enabled) {
-			wlr_log(WLR_DEBUG, "termux: scheduling frame for newly enabled output");
+			wlr_log(WLR_INFO, "termux: scheduling frame for newly enabled output");
 			wlr_output_schedule_frame(wlr_output);
 		}
 	}
@@ -94,26 +112,8 @@ static bool output_move_cursor(struct wlr_output *wlr_output, int x, int y) {
 	return true;
 }
 
-static int frame_timer_handler(void *data) {
-	struct wlr_termux_output *output = data;
-	wlr_log(WLR_INFO, "termux: frame timer triggered");
-	wl_signal_emit_mutable(&output->wlr_output.events.frame, &output->wlr_output);
-	
-	/* Reschedule the timer for continuous refresh */
-	if (output->frame_timer) {
-		int refresh_hz = output->wlr_output.refresh > 0 ? output->wlr_output.refresh / 1000 : 60;
-		int refresh_ms = 1000 / refresh_hz;
-		if (refresh_ms <= 0) refresh_ms = 16;
-		wl_event_source_timer_update(output->frame_timer, refresh_ms);
-	}
-	return 0;
-}
-
 static void output_destroy(struct wlr_output *wlr_output) {
 	struct wlr_termux_output *output = termux_output_from_output(wlr_output);
-	if (output->frame_timer) {
-		wl_event_source_remove(output->frame_timer);
-	}
 	wl_list_remove(&output->link);
 	termux_render_disconnect();
 	free(output);
@@ -164,22 +164,12 @@ struct wlr_output *wlr_termux_add_output(struct wlr_backend *backend,
 	wlr_output_set_name(&output->wlr_output, "TERMUX-1");
 	wlr_output_set_description(&output->wlr_output, "Termux display client");
 
-	/* Set up frame timer for regular refresh */
-	int refresh_hz = refresh_mhz > 0 ? refresh_mhz : 60;
-	int refresh_ms = 1000 / refresh_hz;
-	if (refresh_ms <= 0) refresh_ms = 16; // fallback to ~60fps
-	
-	output->frame_timer = wl_event_loop_add_timer(termux->event_loop, frame_timer_handler, output);
-	if (output->frame_timer) {
-		wl_event_source_timer_update(output->frame_timer, refresh_ms);
-		wlr_log(WLR_INFO, "termux: frame timer set to %dms intervals (%d Hz)", refresh_ms, refresh_hz);
-	}
-
 	wl_list_insert(&termux->outputs, &output->link);
 	if (termux->started) {
 		wl_signal_emit_mutable(&termux->backend.events.new_output, &output->wlr_output);
 	}
 	/* First frame: schedule so compositor draws initial content (Wayland-native). */
 	wlr_output_schedule_frame(&output->wlr_output);
+	wlr_log(WLR_INFO, "termux: output created, using on-demand frame scheduling");
 	return &output->wlr_output;
 }

@@ -46,10 +46,12 @@
   - 新增函数: `frame_timer_handler`
   - 修改函数: `output_destroy`, `wlr_termux_add_output`
 
-- **tinywl/tinywl.c** 添加了调试日志
-  - 状态: 在 `output_frame` 函数中添加了调试输出
-  - 原因: 帮助诊断渲染问题
-  - 恢复方法: 移除调试日志
+- **tinywl/tinywl.c** 添加了调试日志和背景测试
+  - 状态: 在 `output_frame` 函数中添加了调试输出（已降低频率）
+  - 状态: 添加了蓝色背景矩形用于测试渲染
+  - 状态: 添加了强制damage刷新
+  - 原因: 帮助诊断渲染问题和日志刷屏
+  - 恢复方法: 移除调试日志和测试背景
 
 ### 3. tinywl/tinywl.c 中的事件监听器注册
 在main函数中，以下事件监听器注册被注释掉：
