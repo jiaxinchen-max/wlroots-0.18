@@ -568,7 +568,7 @@ static void output_frame(struct wl_listener *listener, void *data) {
 	struct tinywl_output *output = wl_container_of(listener, output, frame);
 	struct wlr_scene *scene = output->server->scene;
 
-	wlr_log(WLR_DEBUG, "tinywl: output_frame called for %s", output->wlr_output->name);
+	wlr_log(WLR_INFO, "tinywl: output_frame called for %s", output->wlr_output->name);
 
 	struct wlr_scene_output *scene_output = wlr_scene_get_scene_output(
 		scene, output->wlr_output);
@@ -578,9 +578,17 @@ static void output_frame(struct wl_listener *listener, void *data) {
 		return;
 	}
 
+	/* Log scene tree info */
+	int toplevel_count = 0;
+	struct tinywl_toplevel *toplevel;
+	wl_list_for_each(toplevel, &output->server->toplevels, link) {
+		toplevel_count++;
+	}
+	wlr_log(WLR_INFO, "tinywl: scene has %d toplevels", toplevel_count);
+
 	/* Render the scene if needed and commit the output */
 	bool committed = wlr_scene_output_commit(scene_output, NULL);
-	wlr_log(WLR_DEBUG, "tinywl: scene_output_commit returned %s", committed ? "true" : "false");
+	wlr_log(WLR_INFO, "tinywl: scene_output_commit returned %s", committed ? "true" : "false");
 
 	struct timespec now;
 	clock_gettime(CLOCK_MONOTONIC, &now);
@@ -673,6 +681,10 @@ static void server_new_output(struct wl_listener *listener, void *data) {
 static void xdg_toplevel_map(struct wl_listener *listener, void *data) {
 	/* Called when the surface is mapped, or ready to display on-screen. */
 	struct tinywl_toplevel *toplevel = wl_container_of(listener, toplevel, map);
+
+	wlr_log(WLR_INFO, "tinywl: xdg toplevel mapped (app_id: %s, title: %s)", 
+		toplevel->xdg_toplevel->app_id ? toplevel->xdg_toplevel->app_id : "unknown",
+		toplevel->xdg_toplevel->title ? toplevel->xdg_toplevel->title : "unknown");
 
 	wl_list_insert(&toplevel->server->toplevels, &toplevel->link);
 
@@ -811,6 +823,10 @@ static void server_new_xdg_toplevel(struct wl_listener *listener, void *data) {
 	/* This event is raised when a client creates a new toplevel (application window). */
 	struct tinywl_server *server = wl_container_of(listener, server, new_xdg_toplevel);
 	struct wlr_xdg_toplevel *xdg_toplevel = data;
+
+	wlr_log(WLR_INFO, "tinywl: new xdg toplevel created (app_id: %s, title: %s)", 
+		xdg_toplevel->app_id ? xdg_toplevel->app_id : "unknown",
+		xdg_toplevel->title ? xdg_toplevel->title : "unknown");
 
 	/* Allocate a tinywl_toplevel for this surface */
 	struct tinywl_toplevel *toplevel = calloc(1, sizeof(*toplevel));
@@ -977,6 +993,10 @@ int main(int argc, char *argv[]) {
 	 */
 	server.scene = wlr_scene_create();
 	server.scene_layout = wlr_scene_attach_output_layout(server.scene, server.output_layout);
+	
+	/* Add a simple background color for testing */
+	wlr_scene_rect_create(&server.scene->tree, 1024, 768, (float[4]){0.2f, 0.2f, 0.8f, 1.0f});
+	wlr_log(WLR_INFO, "tinywl: added blue background (1024x768) to scene");
 
 	/* Set up xdg-shell version 3. The xdg-shell is a Wayland protocol which is
 	 * used for application windows. For more detail on shells, refer to

@@ -96,12 +96,14 @@ static bool output_move_cursor(struct wlr_output *wlr_output, int x, int y) {
 
 static int frame_timer_handler(void *data) {
 	struct wlr_termux_output *output = data;
-	wlr_log(WLR_DEBUG, "termux: frame timer triggered");
+	wlr_log(WLR_INFO, "termux: frame timer triggered");
 	wl_signal_emit_mutable(&output->wlr_output.events.frame, &output->wlr_output);
 	
 	/* Reschedule the timer for continuous refresh */
 	if (output->frame_timer) {
-		int refresh_ms = 1000 / (output->wlr_output.refresh > 0 ? output->wlr_output.refresh / 1000 : 60);
+		int refresh_hz = output->wlr_output.refresh > 0 ? output->wlr_output.refresh / 1000 : 60;
+		int refresh_ms = 1000 / refresh_hz;
+		if (refresh_ms <= 0) refresh_ms = 16;
 		wl_event_source_timer_update(output->frame_timer, refresh_ms);
 	}
 	return 0;
@@ -163,11 +165,14 @@ struct wlr_output *wlr_termux_add_output(struct wlr_backend *backend,
 	wlr_output_set_description(&output->wlr_output, "Termux display client");
 
 	/* Set up frame timer for regular refresh */
-	int refresh_ms = 1000 / (refresh_mhz > 0 ? refresh_mhz : 60);
+	int refresh_hz = refresh_mhz > 0 ? refresh_mhz : 60;
+	int refresh_ms = 1000 / refresh_hz;
+	if (refresh_ms <= 0) refresh_ms = 16; // fallback to ~60fps
+	
 	output->frame_timer = wl_event_loop_add_timer(termux->event_loop, frame_timer_handler, output);
 	if (output->frame_timer) {
 		wl_event_source_timer_update(output->frame_timer, refresh_ms);
-		wlr_log(WLR_DEBUG, "termux: frame timer set to %dms intervals", refresh_ms);
+		wlr_log(WLR_INFO, "termux: frame timer set to %dms intervals (%d Hz)", refresh_ms, refresh_hz);
 	}
 
 	wl_list_insert(&termux->outputs, &output->link);
