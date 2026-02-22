@@ -591,9 +591,6 @@ static void output_frame(struct wl_listener *listener, void *data) {
 	wlr_log(WLR_INFO, "tinywl: calling wlr_scene_output_commit");
 	bool commit_result = wlr_scene_output_commit(scene_output, NULL);
 	wlr_log(WLR_INFO, "tinywl: wlr_scene_output_commit returned %s", commit_result ? "true" : "false");
-	
-	/* Render software cursors on top of the scene */
-	wlr_output_render_software_cursors(output->wlr_output, NULL);
 
 	struct timespec now;
 	clock_gettime(CLOCK_MONOTONIC, &now);
@@ -687,13 +684,17 @@ static void server_new_output(struct wl_listener *listener, void *data) {
 
 	/* Add a blue background for better visibility */
 	wlr_log(WLR_INFO, "tinywl: adding blue background rect");
-	struct wlr_scene_rect *bg_rect = wlr_scene_rect_create(&server->scene->tree, 
-		wlr_output->width, wlr_output->height, 
+	struct wlr_scene_rect *bg_rect = wlr_scene_rect_create(&server->scene->tree,
+		wlr_output->width, wlr_output->height,
 		(float[]){0.0f, 0.0f, 1.0f, 1.0f}); // Blue background
 	if (bg_rect) {
 		wlr_scene_node_set_position(&bg_rect->node, 0, 0);
 		wlr_log(WLR_INFO, "tinywl: blue background added at %dx%d", wlr_output->width, wlr_output->height);
 	}
+
+	/* Force software cursor rendering for this output */
+	wlr_log(WLR_INFO, "tinywl: enabling software cursors for output");
+	wlr_output_lock_software_cursors(wlr_output, true);
 }
 
 static void xdg_toplevel_map(struct wl_listener *listener, void *data) {
