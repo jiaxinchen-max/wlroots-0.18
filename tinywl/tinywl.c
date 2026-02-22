@@ -480,7 +480,6 @@ static void process_cursor_motion(struct tinywl_server *server, uint32_t time) {
 	}
 }
 
-__attribute__((unused))
 static void server_cursor_motion(struct wl_listener *listener, void *data) {
 	/* This event is forwarded by the cursor when a pointer emits a _relative_
 	 * pointer motion event (i.e. a delta) */
@@ -497,7 +496,6 @@ static void server_cursor_motion(struct wl_listener *listener, void *data) {
 	process_cursor_motion(server, event->time_msec);
 }
 
-__attribute__((unused))
 static void server_cursor_motion_absolute(
 		struct wl_listener *listener, void *data) {
 	/* This event is forwarded by the cursor when a pointer emits an _absolute_
@@ -514,7 +512,6 @@ static void server_cursor_motion_absolute(
 	process_cursor_motion(server, event->time_msec);
 }
 
-__attribute__((unused))
 static void server_cursor_button(struct wl_listener *listener, void *data) {
 	/* This event is forwarded by the cursor when a pointer emits a button
 	 * event. */
@@ -537,7 +534,6 @@ static void server_cursor_button(struct wl_listener *listener, void *data) {
 	}
 }
 
-__attribute__((unused))
 static void server_cursor_axis(struct wl_listener *listener, void *data) {
 	/* This event is forwarded by the cursor when a pointer emits an axis event,
 	 * for example when you move the scroll wheel. */
@@ -546,11 +542,10 @@ static void server_cursor_axis(struct wl_listener *listener, void *data) {
 	struct wlr_pointer_axis_event *event = data;
 	/* Notify the client with pointer focus of the axis event. */
 	wlr_seat_pointer_notify_axis(server->seat,
-		event->time_msec, event->orientation, event->delta,
-		event->delta_discrete, event->source, event->relative_direction);
+			event->time_msec, event->orientation, event->delta,
+			event->delta_discrete, event->source, event->relative_direction);
 }
 
-__attribute__((unused))
 static void server_cursor_frame(struct wl_listener *listener, void *data) {
 	/* This event is forwarded by the cursor when a pointer emits an frame
 	 * event. Frame events are sent after regular pointer events to group
@@ -565,86 +560,14 @@ static void server_cursor_frame(struct wl_listener *listener, void *data) {
 static void output_frame(struct wl_listener *listener, void *data) {
 	/* This function is called every time an output is ready to display a frame,
 	 * generally at the output's refresh rate (e.g. 60Hz). */
-	
-	/* Immediate logging to catch any calls */
-	printf("*** TINYWL: OUTPUT_FRAME CALLED ***\n");
-	fflush(stdout);
-	
 	struct tinywl_output *output = wl_container_of(listener, output, frame);
 	struct wlr_scene *scene = output->server->scene;
 
-	static int frame_count = 0;
-	frame_count++;
-	
-	wlr_log(WLR_ERROR, "*** TINYWL: OUTPUT_FRAME CALLED (frame %d) ***", frame_count);
-	printf("*** TINYWL: OUTPUT_FRAME PROCESSING (frame %d) ***\n", frame_count);
-	fflush(stdout);
-
-	wlr_log(WLR_INFO, "tinywl: looking for scene_output for output %s (%p)", 
-		output->wlr_output->name, (void*)output->wlr_output);
-		
 	struct wlr_scene_output *scene_output = wlr_scene_get_scene_output(
 		scene, output->wlr_output);
 
-	if (!scene_output) {
-		wlr_log(WLR_ERROR, "tinywl: no scene_output found for output %s (%p) - this is a bug!", 
-			output->wlr_output->name, (void*)output->wlr_output);
-		return;
-	} else {
-		wlr_log(WLR_INFO, "tinywl: found scene_output (%p)", (void*)scene_output);
-	}
-
-	/* Log scene tree info */
-	int toplevel_count = 0;
-	struct tinywl_toplevel *toplevel;
-	wl_list_for_each(toplevel, &output->server->toplevels, link) {
-		toplevel_count++;
-	}
-	wlr_log(WLR_INFO, "tinywl: scene has %d toplevels", toplevel_count);
-	
-	/* Check if scene tree has any children */
-	int scene_children = 0;
-	struct wlr_scene_node *child;
-	wl_list_for_each(child, &scene->tree.children, link) {
-		scene_children++;
-		wlr_log(WLR_INFO, "tinywl: scene child type=%d, enabled=%s", 
-			child->type, child->enabled ? "true" : "false");
-	}
-	wlr_log(WLR_INFO, "tinywl: scene tree has %d children total", scene_children);
-
 	/* Render the scene if needed and commit the output */
-	/* Check output state before commit */
-	wlr_log(WLR_INFO, "tinywl: output needs_frame=%s", output->wlr_output->needs_frame ? "true" : "false");
-	wlr_log(WLR_INFO, "tinywl: output enabled=%s", output->wlr_output->enabled ? "true" : "false");
-	
-	/* Force frame scheduling to ensure rendering happens */
-	wlr_log(WLR_INFO, "tinywl: forcing frame scheduling");
-	wlr_output_schedule_frame(output->wlr_output);
-	
-	/* Try to build state first to see if that's where it fails */
-	struct wlr_output_state test_state;
-	wlr_output_state_init(&test_state);
-	bool build_ok = wlr_scene_output_build_state(scene_output, &test_state, NULL);
-	wlr_log(WLR_INFO, "tinywl: scene_output_build_state returned %s", build_ok ? "true" : "false");
-	wlr_output_state_finish(&test_state);
-	
-	bool committed = wlr_scene_output_commit(scene_output, NULL);
-	wlr_log(WLR_INFO, "tinywl: scene_output_commit returned %s", committed ? "true" : "false");
-	
-	if (!committed) {
-		wlr_log(WLR_ERROR, "tinywl: scene_output_commit failed - checking output state");
-		wlr_log(WLR_ERROR, "tinywl: output->enabled=%s", output->wlr_output->enabled ? "true" : "false");
-		wlr_log(WLR_ERROR, "tinywl: output->current_mode=%p", (void*)output->wlr_output->current_mode);
-		wlr_log(WLR_ERROR, "tinywl: output dimensions: %dx%d", 
-			output->wlr_output->width, output->wlr_output->height);
-		
-		/* Check if this is a custom mode issue */
-		if (!output->wlr_output->current_mode) {
-			wlr_log(WLR_ERROR, "tinywl: no current_mode - this may be why scene_output_commit fails");
-			wlr_log(WLR_ERROR, "tinywl: output custom_mode: width=%d, height=%d, refresh=%d", 
-				output->wlr_output->width, output->wlr_output->height, output->wlr_output->refresh);
-		}
-	}
+	wlr_scene_output_commit(scene_output, NULL);
 
 	struct timespec now;
 	clock_gettime(CLOCK_MONOTONIC, &now);
@@ -676,9 +599,6 @@ static void server_new_output(struct wl_listener *listener, void *data) {
 	struct tinywl_server *server =
 		wl_container_of(listener, server, new_output);
 	struct wlr_output *wlr_output = data;
-	
-	wlr_log(WLR_INFO, "tinywl: new output %s (%dx%d)", wlr_output->name, 
-		wlr_output->width, wlr_output->height);
 
 	/* Configures the output created by the backend to use our allocator
 	 * and our renderer. Must be done once, before commiting the output */
@@ -696,29 +616,15 @@ static void server_new_output(struct wl_listener *listener, void *data) {
 	 * would let the user configure it. */
 	struct wlr_output_mode *mode = wlr_output_preferred_mode(wlr_output);
 	if (mode != NULL) {
-		wlr_log(WLR_INFO, "tinywl: using preferred mode %dx%d@%dmHz", 
-			mode->width, mode->height, mode->refresh);
 		wlr_output_state_set_mode(&state, mode);
 	} else {
 		/* For backends without modes (like Termux), set a custom mode */
-		wlr_log(WLR_INFO, "tinywl: no preferred mode, setting custom mode %dx%d@60Hz", 
-			wlr_output->width, wlr_output->height);
 		wlr_output_state_set_custom_mode(&state, wlr_output->width, wlr_output->height, 60000);
 	}
 
 	/* Atomically applies the new output state. */
-	bool commit_result = wlr_output_commit_state(wlr_output, &state);
-	wlr_log(WLR_INFO, "tinywl: output_commit_state returned %s", commit_result ? "true" : "false");
+	wlr_output_commit_state(wlr_output, &state);
 	wlr_output_state_finish(&state);
-	
-	/* Check if mode was set correctly */
-	if (wlr_output->current_mode) {
-		wlr_log(WLR_INFO, "tinywl: output current_mode set to %dx%d@%dmHz", 
-			wlr_output->current_mode->width, wlr_output->current_mode->height, 
-			wlr_output->current_mode->refresh);
-	} else {
-		wlr_log(WLR_ERROR, "tinywl: output current_mode is still NULL after commit!");
-	}
 
 	/* Allocates and configures our state for this output */
 	struct tinywl_output *output = calloc(1, sizeof(*output));
@@ -728,17 +634,6 @@ static void server_new_output(struct wl_listener *listener, void *data) {
 	/* Sets up a listener for the frame event. */
 	output->frame.notify = output_frame;
 	wl_signal_add(&wlr_output->events.frame, &output->frame);
-	wlr_log(WLR_INFO, "tinywl: registered frame event listener for output %s (listener=%p, notify=%p)", 
-		wlr_output->name, (void*)&output->frame, (void*)output->frame.notify);
-	
-	/* Test if the listener is properly linked */
-	if (wl_list_empty(&wlr_output->events.frame.listener_list)) {
-		wlr_log(WLR_ERROR, "tinywl: frame event listener list is empty after registration!");
-	} else {
-		wlr_log(WLR_INFO, "tinywl: frame event listener list is not empty, registration seems successful");
-	}
-	
-	/* Frame event emission test will be done after scene_output is created */
 
 	/* Sets up a listener for the state request event. */
 	output->request_state.notify = output_request_state;
@@ -762,81 +657,16 @@ static void server_new_output(struct wl_listener *listener, void *data) {
 	struct wlr_output_layout_output *l_output = wlr_output_layout_add_auto(server->output_layout,
 		wlr_output);
 	struct wlr_scene_output *scene_output = wlr_scene_output_create(server->scene, wlr_output);
-	if (!scene_output) {
-		wlr_log(WLR_ERROR, "tinywl: failed to create scene_output!");
-		return;
-	}
-	wlr_log(WLR_INFO, "tinywl: created scene_output successfully (%p)", (void*)scene_output);
-	
 	wlr_scene_output_layout_add_output(server->scene_layout, l_output, scene_output);
-	wlr_log(WLR_INFO, "tinywl: added scene_output to layout");
-	
-	/* Test scene_output retrieval immediately */
-	struct wlr_scene_output *test_scene_output = wlr_scene_get_scene_output(server->scene, wlr_output);
-	if (test_scene_output) {
-		wlr_log(WLR_INFO, "tinywl: scene_output retrieval test successful (%p)", (void*)test_scene_output);
-	} else {
-		wlr_log(WLR_ERROR, "tinywl: scene_output retrieval test FAILED!");
-	}
-	
-	/* Always add background for debugging */
-	wlr_log(WLR_INFO, "tinywl: adding background for output %s", wlr_output->name);
-	struct wlr_scene_rect *bg_rect = wlr_scene_rect_create(&server->scene->tree, 
-		wlr_output->width, wlr_output->height, (float[4]){0.2f, 0.2f, 0.8f, 1.0f});
-	if (bg_rect) {
-		wlr_log(WLR_INFO, "tinywl: added blue background (%dx%d) to scene successfully", 
-			wlr_output->width, wlr_output->height);
-		wlr_scene_node_lower_to_bottom(&bg_rect->node);
-		
-		/* Ensure background is enabled and visible */
-		wlr_scene_node_set_enabled(&bg_rect->node, true);
-		wlr_log(WLR_INFO, "tinywl: background node enabled=%s", 
-			bg_rect->node.enabled ? "true" : "false");
-		
-		/* Schedule initial frame */
-		wlr_output_schedule_frame(wlr_output);
-		wlr_log(WLR_INFO, "tinywl: scheduled initial frame for background");
-	} else {
-		wlr_log(WLR_ERROR, "tinywl: failed to create background rectangle");
-	}
-	
-	/* Now test frame event emission with scene_output properly created */
-	wlr_log(WLR_INFO, "tinywl: testing frame event emission after scene setup");
-	printf("TINYWL: Testing frame emission with scene_output ready\n");
-	fflush(stdout);
-	
-	/* Debug the listener setup */
-	wlr_log(WLR_INFO, "tinywl: listener notify function = %p", (void*)output->frame.notify);
-	wlr_log(WLR_INFO, "tinywl: expected function = %p", (void*)output_frame);
-	
-	/* Try calling the function directly first */
-	wlr_log(WLR_INFO, "tinywl: calling output_frame directly");
-	printf("TINYWL: Calling output_frame directly\n");
-	fflush(stdout);
-	output_frame(&output->frame, wlr_output);
-	printf("TINYWL: Direct call completed\n");
-	fflush(stdout);
 }
 
 static void xdg_toplevel_map(struct wl_listener *listener, void *data) {
 	/* Called when the surface is mapped, or ready to display on-screen. */
 	struct tinywl_toplevel *toplevel = wl_container_of(listener, toplevel, map);
 
-	wlr_log(WLR_INFO, "tinywl: xdg toplevel mapped (app_id: %s, title: %s)", 
-		toplevel->xdg_toplevel->app_id ? toplevel->xdg_toplevel->app_id : "unknown",
-		toplevel->xdg_toplevel->title ? toplevel->xdg_toplevel->title : "unknown");
-
 	wl_list_insert(&toplevel->server->toplevels, &toplevel->link);
 
 	focus_toplevel(toplevel, toplevel->xdg_toplevel->base->surface);
-	
-	/* Schedule frame when new toplevel is mapped */
-	struct tinywl_output *output;
-	wl_list_for_each(output, &toplevel->server->outputs, link) {
-		wlr_log(WLR_INFO, "tinywl: scheduling frame for mapped toplevel");
-		wlr_output_schedule_frame(output->wlr_output);
-		break;
-	}
 }
 
 static void xdg_toplevel_unmap(struct wl_listener *listener, void *data) {
@@ -971,10 +801,6 @@ static void server_new_xdg_toplevel(struct wl_listener *listener, void *data) {
 	/* This event is raised when a client creates a new toplevel (application window). */
 	struct tinywl_server *server = wl_container_of(listener, server, new_xdg_toplevel);
 	struct wlr_xdg_toplevel *xdg_toplevel = data;
-
-	wlr_log(WLR_INFO, "tinywl: new xdg toplevel created (app_id: %s, title: %s)", 
-		xdg_toplevel->app_id ? xdg_toplevel->app_id : "unknown",
-		xdg_toplevel->title ? xdg_toplevel->title : "unknown");
 
 	/* Allocate a tinywl_toplevel for this surface */
 	struct tinywl_toplevel *toplevel = calloc(1, sizeof(*toplevel));
@@ -1141,7 +967,6 @@ int main(int argc, char *argv[]) {
 	 */
 	server.scene = wlr_scene_create();
 	server.scene_layout = wlr_scene_attach_output_layout(server.scene, server.output_layout);
-	
 
 	/* Set up xdg-shell version 3. The xdg-shell is a Wayland protocol which is
 	 * used for application windows. For more detail on shells, refer to
@@ -1178,7 +1003,6 @@ int main(int argc, char *argv[]) {
 	 * And more comments are sprinkled throughout the notify functions above.
 	 */
 	server.cursor_mode = TINYWL_CURSOR_PASSTHROUGH;
-	/* Temporarily commented out cursor input handling for testing
 	server.cursor_motion.notify = server_cursor_motion;
 	wl_signal_add(&server.cursor->events.motion, &server.cursor_motion);
 	server.cursor_motion_absolute.notify = server_cursor_motion_absolute;
@@ -1190,7 +1014,6 @@ int main(int argc, char *argv[]) {
 	wl_signal_add(&server.cursor->events.axis, &server.cursor_axis);
 	server.cursor_frame.notify = server_cursor_frame;
 	wl_signal_add(&server.cursor->events.frame, &server.cursor_frame);
-	*/
 
 	/*
 	 * Configures a seat, which is a single "seat" at which a user sits and

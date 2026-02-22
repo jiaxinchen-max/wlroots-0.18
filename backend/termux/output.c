@@ -130,9 +130,13 @@ static int present_complete_handler(int fd, uint32_t mask, void *data) {
 		return 0;
 	}
 	
-	/* Send frame event to request next frame */
-	wlr_log(WLR_DEBUG, "termux: present completed, sending frame event");
-	wlr_output_send_frame(&output->wlr_output);
+	/* Only send frame event if compositor needs it (has damage or pending frames) */
+	if (output->wlr_output.needs_frame) {
+		wlr_log(WLR_DEBUG, "termux: present completed, sending frame event");
+		wlr_output_send_frame(&output->wlr_output);
+	} else {
+		wlr_log(WLR_DEBUG, "termux: present completed, no frame needed");
+	}
 	
 	return 0;
 }
