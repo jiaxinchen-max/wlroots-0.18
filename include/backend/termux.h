@@ -3,12 +3,21 @@
 
 #include <stdbool.h>
 #include <stddef.h>
+#include <pthread.h>
 #include <wayland-server-core.h>
 #include <wlr/backend/termux.h>
 #include <wlr/backend/interface.h>
 #include <wlr/types/wlr_keyboard.h>
 #include <wlr/types/wlr_pointer.h>
 #include <wlr/types/wlr_touch.h>
+
+/* Simple thread-safe queue for async present */
+struct termux_present_queue {
+	struct wl_list buffers;
+	pthread_mutex_t mutex;
+	pthread_cond_t cond;
+	int length;
+};
 
 struct wlr_termux_backend {
 	struct wlr_backend backend;
@@ -43,6 +52,19 @@ struct wlr_termux_keyboard {
 struct wlr_termux_output {
 	struct wlr_output wlr_output;
 	struct wlr_termux_backend *backend;
+	struct wl_list link;
+	
+	/* Async present mechanism */
+	struct termux_present_queue present_queue;
+	pthread_t present_thread;
+	bool present_thread_running;
+	int present_complete_fd;
+	struct wl_event_source *present_complete_source;
+};
+
+/* Buffer entry for present queue */
+struct termux_present_buffer {
+	struct wlr_buffer *buffer;
 	struct wl_list link;
 };
 

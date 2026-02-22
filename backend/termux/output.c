@@ -6,6 +6,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/mman.h>
+#include <sys/eventfd.h>
+#include <pthread.h>
 #include <unistd.h>
 #include <wlr/interfaces/wlr_output.h>
 #include <wlr/util/log.h>
@@ -18,9 +20,109 @@ static const uint32_t SUPPORTED_OUTPUT_STATE =
 	WLR_OUTPUT_STATE_ENABLED |
 	WLR_OUTPUT_STATE_MODE;
 
+/* Queue operations for async present */
+static void present_queue_init(struct termux_present_queue *queue) {
+	wl_list_init(&queue->buffers);
+	pthread_mutex_init(&queue->mutex, NULL);
+	pthread_cond_init(&queue->cond, NULL);
+	queue->length = 0;
+}
+
+static void present_queue_destroy(struct termux_present_queue *queue) {
+	pthread_mutex_destroy(&queue->mutex);
+	pthread_cond_destroy(&queue->cond);
+}
+
+static void present_queue_push(struct termux_present_queue *queue, struct termux_present_buffer *buffer) {
+	pthread_mutex_lock(&queue->mutex);
+	if (queue->length == 0) {
+		pthread_cond_signal(&queue->cond);
+	}
+	queue->length++;
+	wl_list_insert(&queue->buffers, &buffer->link);
+	pthread_mutex_unlock(&queue->mutex);
+}
+
+static struct termux_present_buffer *present_queue_pull(struct termux_present_queue *queue) {
+	pthread_mutex_lock(&queue->mutex);
+	
+	while (queue->length == 0) {
+		pthread_cond_wait(&queue->cond, &queue->mutex);
+	}
+	
+	queue->length--;
+	struct termux_present_buffer *buffer = wl_container_of(queue->buffers.prev, buffer, link);
+	wl_list_remove(&buffer->link);
+	
+	pthread_mutex_unlock(&queue->mutex);
+	return buffer;
+}
+
 static struct wlr_termux_output *termux_output_from_output(struct wlr_output *o) {
 	assert(wlr_output_is_termux(o));
 	return wl_container_of(o, (struct wlr_termux_output *)0, wlr_output);
+}
+
+/* Present thread: processes buffers asynchronously */
+static void *present_thread_func(void *data) {
+	struct wlr_termux_output *output = data;
+	
+	wlr_log(WLR_INFO, "termux: present thread started");
+	
+	while (output->present_thread_running) {
+		struct termux_present_buffer *present_buffer = present_queue_pull(&output->present_queue);
+		
+		if (!output->present_thread_running) {
+			free(present_buffer);
+			break;
+		}
+		
+		/* Copy buffer to termux render */
+		if (present_buffer->buffer) {
+			struct wlr_buffer *buffer = present_buffer->buffer;
+			void *data = NULL;
+			uint32_t format;
+			size_t stride;
+			
+			if (wlr_buffer_begin_data_ptr_access(buffer, WLR_BUFFER_DATA_PTR_ACCESS_READ, &data, &format, &stride)) {
+				bool ok = termux_render_push_frame(data, stride);
+				wlr_buffer_end_data_ptr_access(buffer);
+				
+				wlr_log(WLR_DEBUG, "termux: async buffer copy result: %s", ok ? "success" : "failed");
+			}
+			
+			wlr_buffer_unlock(buffer);
+		}
+		
+		free(present_buffer);
+		
+		/* Signal completion */
+		eventfd_write(output->present_complete_fd, 1);
+	}
+	
+	wlr_log(WLR_INFO, "termux: present thread stopped");
+	return NULL;
+}
+
+/* Handle present completion events */
+static int present_complete_handler(int fd, uint32_t mask, void *data) {
+	struct wlr_termux_output *output = data;
+	
+	if ((mask & WL_EVENT_HANGUP) || (mask & WL_EVENT_ERROR)) {
+		wlr_log(WLR_ERROR, "termux: present complete event error");
+		return 0;
+	}
+	
+	eventfd_t count = 0;
+	if (eventfd_read(fd, &count) < 0) {
+		return 0;
+	}
+	
+	/* Send frame event to request next frame */
+	wlr_log(WLR_DEBUG, "termux: present completed, sending frame event");
+	wlr_output_send_frame(&output->wlr_output);
+	
+	return 0;
 }
 
 static bool output_test(struct wlr_output *wlr_output, const struct wlr_output_state *state) {
@@ -88,38 +190,26 @@ static bool output_commit(struct wlr_output *wlr_output, const struct wlr_output
 	}
 	wlr_log(WLR_DEBUG, "termux: output_test passed");
 	
-	bool pending_enabled = output_pending_enabled(wlr_output, state);
-	if (should_log) {
-		wlr_log(WLR_INFO, "termux: output enabled=%s, pending_enabled=%s", 
-			wlr_output->enabled ? "true" : "false", pending_enabled ? "true" : "false");
-	}
-	
-	if (pending_enabled) {
+	/* Handle buffer commit asynchronously */
+	if ((state->committed & WLR_OUTPUT_STATE_BUFFER) && state->buffer) {
+		struct termux_present_buffer *present_buffer = calloc(1, sizeof(*present_buffer));
+		if (!present_buffer) {
+			wlr_log(WLR_ERROR, "termux: failed to allocate present buffer");
+			return false;
+		}
+		
+		present_buffer->buffer = state->buffer;
+		wlr_buffer_lock(state->buffer);
+		
+		/* Queue buffer for async processing */
+		present_queue_push(&output->present_queue, present_buffer);
+		
 		if (should_log) {
-			wlr_log(WLR_INFO, "termux: output is pending enabled, copying buffer");
-		}
-		bool buffer_copied = copy_buffer_to_lorie(output, state);
-		if (should_log || !buffer_copied) {
-			wlr_log(WLR_INFO, "termux: buffer copy result: %s", buffer_copied ? "success" : "failed");
-		}
-		
-		struct wlr_output_event_present present_event = {
-			.commit_seq = wlr_output->commit_seq + 1,
-			.presented = true,
-		};
-		output_defer_present(wlr_output, present_event);
-		
-		/* Schedule next frame only when compositor needs it (damage/frame callbacks).
-		 * On first enable, schedule one frame so the initial content is drawn. */
-		if (!wlr_output->enabled) {
-			wlr_log(WLR_INFO, "termux: scheduling frame for newly enabled output");
-			wlr_output_schedule_frame(wlr_output);
+			wlr_log(WLR_INFO, "termux: queued buffer for async present");
 		}
 	}
 	
-	/* DO NOT send frame event here - test if this causes the commit failure */
-	wlr_log(WLR_INFO, "termux: commit completed, NOT sending frame event for testing");
-	wlr_log(WLR_INFO, "termux: output_commit returning true");
+	wlr_log(WLR_DEBUG, "termux: output_commit returning true (async)");
 	return true;
 }
 
@@ -132,6 +222,17 @@ static bool output_move_cursor(struct wlr_output *wlr_output, int x, int y) {
 
 static void output_destroy(struct wlr_output *wlr_output) {
 	struct wlr_termux_output *output = termux_output_from_output(wlr_output);
+	
+	/* Stop present thread */
+	output->present_thread_running = false;
+	pthread_cond_signal(&output->present_queue.cond);
+	pthread_join(output->present_thread, NULL);
+	
+	/* Cleanup async resources */
+	wl_event_source_remove(output->present_complete_source);
+	close(output->present_complete_fd);
+	present_queue_destroy(&output->present_queue);
+	
 	wl_list_remove(&output->link);
 	termux_render_disconnect();
 	free(output);
@@ -185,6 +286,39 @@ struct wlr_output *wlr_termux_add_output(struct wlr_backend *backend,
 		output->wlr_output.enabled ? "true" : "false",
 		output->wlr_output.width, output->wlr_output.height);
 
+	/* Initialize async present mechanism */
+	present_queue_init(&output->present_queue);
+	
+	output->present_complete_fd = eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK | EFD_SEMAPHORE);
+	if (output->present_complete_fd < 0) {
+		wlr_log(WLR_ERROR, "termux: failed to create present complete eventfd");
+		present_queue_destroy(&output->present_queue);
+		free(output);
+		return NULL;
+	}
+	
+	uint32_t events = WL_EVENT_READABLE | WL_EVENT_ERROR | WL_EVENT_HANGUP;
+	output->present_complete_source = wl_event_loop_add_fd(termux->event_loop, 
+		output->present_complete_fd, events, present_complete_handler, output);
+	if (!output->present_complete_source) {
+		wlr_log(WLR_ERROR, "termux: failed to create present complete event source");
+		close(output->present_complete_fd);
+		present_queue_destroy(&output->present_queue);
+		free(output);
+		return NULL;
+	}
+	
+	/* Start present thread */
+	output->present_thread_running = true;
+	if (pthread_create(&output->present_thread, NULL, present_thread_func, output) != 0) {
+		wlr_log(WLR_ERROR, "termux: failed to create present thread");
+		wl_event_source_remove(output->present_complete_source);
+		close(output->present_complete_fd);
+		present_queue_destroy(&output->present_queue);
+		free(output);
+		return NULL;
+	}
+	
 	wl_list_insert(&termux->outputs, &output->link);
 	if (termux->started) {
 		wl_signal_emit_mutable(&termux->backend.events.new_output, &output->wlr_output);
