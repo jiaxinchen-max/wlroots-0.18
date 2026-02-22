@@ -24,7 +24,12 @@ static struct wlr_termux_output *termux_output_from_output(struct wlr_output *o)
 
 static bool output_test(struct wlr_output *wlr_output, const struct wlr_output_state *state) {
 	uint32_t unsupported = state->committed & ~SUPPORTED_OUTPUT_STATE;
-	if (unsupported != 0) return false;
+	if (unsupported != 0) {
+		wlr_log(WLR_ERROR, "termux: unsupported output state: 0x%x (supported: 0x%x)", 
+			unsupported, SUPPORTED_OUTPUT_STATE);
+		return false;
+	}
+	wlr_log(WLR_DEBUG, "termux: output_test: state committed=0x%x, all supported", state->committed);
 	return true;
 }
 
@@ -76,7 +81,11 @@ static bool output_commit(struct wlr_output *wlr_output, const struct wlr_output
 	}
 	commit_count++;
 	
-	if (!output_test(wlr_output, state)) return false;
+	if (!output_test(wlr_output, state)) {
+		wlr_log(WLR_ERROR, "termux: output_test failed!");
+		return false;
+	}
+	wlr_log(WLR_DEBUG, "termux: output_test passed");
 	
 	bool pending_enabled = output_pending_enabled(wlr_output, state);
 	if (should_log) {
@@ -107,9 +116,9 @@ static bool output_commit(struct wlr_output *wlr_output, const struct wlr_output
 		}
 	}
 	
-	/* Send frame event to request next frame - this is safe after buffer is processed */
-	wlr_log(WLR_INFO, "termux: commit completed, sending frame event for next frame");
-	wlr_output_send_frame(wlr_output);
+	/* DO NOT send frame event here - test if this causes the commit failure */
+	wlr_log(WLR_INFO, "termux: commit completed, NOT sending frame event for testing");
+	wlr_log(WLR_INFO, "termux: output_commit returning true");
 	return true;
 }
 
