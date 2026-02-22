@@ -107,19 +107,8 @@ static bool output_commit(struct wlr_output *wlr_output, const struct wlr_output
 		}
 	}
 	
-	/* Always send frame event after any commit to signal frame completion */
-	wlr_log(WLR_INFO, "termux: sending frame event after commit (output enabled=%s, frame_pending=%s)", 
-		wlr_output->enabled ? "true" : "false",
-		wlr_output->frame_pending ? "true" : "false");
-	
-	/* Try both methods to ensure frame event is sent */
-	wlr_output_send_frame(wlr_output);
-	wlr_log(WLR_INFO, "termux: wlr_output_send_frame completed");
-	
-	/* Also try direct signal emission as backup */
-	wlr_log(WLR_INFO, "termux: also trying direct frame signal emission");
-	wl_signal_emit_mutable(&wlr_output->events.frame, wlr_output);
-	wlr_log(WLR_INFO, "termux: direct frame signal emission completed");
+	/* DO NOT send frame event here - this causes recursion! */
+	wlr_log(WLR_INFO, "termux: commit completed, NOT sending frame event to avoid recursion");
 	return true;
 }
 
