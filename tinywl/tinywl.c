@@ -677,6 +677,16 @@ static void server_new_output(struct wl_listener *listener, void *data) {
 		wlr_output);
 	struct wlr_scene_output *scene_output = wlr_scene_output_create(server->scene, wlr_output);
 	wlr_scene_output_layout_add_output(server->scene_layout, l_output, scene_output);
+
+	/* Add a blue background for better visibility */
+	wlr_log(WLR_INFO, "tinywl: adding blue background rect");
+	struct wlr_scene_rect *bg_rect = wlr_scene_rect_create(&server->scene->tree, 
+		wlr_output->width, wlr_output->height, 
+		(float[]){0.0f, 0.0f, 1.0f, 1.0f}); // Blue background
+	if (bg_rect) {
+		wlr_scene_node_set_position(&bg_rect->node, 0, 0);
+		wlr_log(WLR_INFO, "tinywl: blue background added at %dx%d", wlr_output->width, wlr_output->height);
+	}
 }
 
 static void xdg_toplevel_map(struct wl_listener *listener, void *data) {
