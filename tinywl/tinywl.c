@@ -623,6 +623,9 @@ static void server_new_output(struct wl_listener *listener, void *data) {
 	struct tinywl_server *server =
 		wl_container_of(listener, server, new_output);
 	struct wlr_output *wlr_output = data;
+	
+	wlr_log(WLR_INFO, "tinywl: new output %s (%dx%d)", wlr_output->name, 
+		wlr_output->width, wlr_output->height);
 
 	/* Configures the output created by the backend to use our allocator
 	 * and our renderer. Must be done once, before commiting the output */
@@ -679,6 +682,26 @@ static void server_new_output(struct wl_listener *listener, void *data) {
 		wlr_output);
 	struct wlr_scene_output *scene_output = wlr_scene_output_create(server->scene, wlr_output);
 	wlr_scene_output_layout_add_output(server->scene_layout, l_output, scene_output);
+	
+	/* Add background when first output is created */
+	static bool background_added = false;
+	if (!background_added) {
+		wlr_log(WLR_INFO, "tinywl: adding background for first output");
+		struct wlr_scene_rect *bg_rect = wlr_scene_rect_create(&server->scene->tree, 
+			wlr_output->width, wlr_output->height, (float[4]){0.2f, 0.2f, 0.8f, 1.0f});
+		if (bg_rect) {
+			wlr_log(WLR_INFO, "tinywl: added blue background (%dx%d) to scene successfully", 
+				wlr_output->width, wlr_output->height);
+			wlr_scene_node_lower_to_bottom(&bg_rect->node);
+			
+			/* Schedule initial frame */
+			wlr_output_schedule_frame(wlr_output);
+			wlr_log(WLR_INFO, "tinywl: scheduled initial frame for background");
+		} else {
+			wlr_log(WLR_ERROR, "tinywl: failed to create background rectangle");
+		}
+		background_added = true;
+	}
 }
 
 static void xdg_toplevel_map(struct wl_listener *listener, void *data) {
@@ -692,6 +715,14 @@ static void xdg_toplevel_map(struct wl_listener *listener, void *data) {
 	wl_list_insert(&toplevel->server->toplevels, &toplevel->link);
 
 	focus_toplevel(toplevel, toplevel->xdg_toplevel->base->surface);
+	
+	/* Schedule frame when new toplevel is mapped */
+	struct tinywl_output *output;
+	wl_list_for_each(output, &toplevel->server->outputs, link) {
+		wlr_log(WLR_INFO, "tinywl: scheduling frame for mapped toplevel");
+		wlr_output_schedule_frame(output->wlr_output);
+		break;
+	}
 }
 
 static void xdg_toplevel_unmap(struct wl_listener *listener, void *data) {
@@ -997,23 +1028,6 @@ int main(int argc, char *argv[]) {
 	server.scene = wlr_scene_create();
 	server.scene_layout = wlr_scene_attach_output_layout(server.scene, server.output_layout);
 	
-	/* Add a simple background color for testing */
-	struct wlr_scene_rect *bg_rect = wlr_scene_rect_create(&server.scene->tree, 1024, 768, (float[4]){0.2f, 0.2f, 0.8f, 1.0f});
-	if (bg_rect) {
-		wlr_log(WLR_INFO, "tinywl: added blue background (1024x768) to scene successfully");
-		/* Make sure the background is at the bottom */
-		wlr_scene_node_lower_to_bottom(&bg_rect->node);
-		
-		/* Request initial frame after adding background */
-		struct tinywl_output *output;
-		wl_list_for_each(output, &server.outputs, link) {
-			wlr_output_schedule_frame(output->wlr_output);
-			wlr_log(WLR_INFO, "tinywl: scheduled initial frame for background");
-			break;
-		}
-	} else {
-		wlr_log(WLR_ERROR, "tinywl: failed to create background rectangle");
-	}
 
 	/* Set up xdg-shell version 3. The xdg-shell is a Wayland protocol which is
 	 * used for application windows. For more detail on shells, refer to

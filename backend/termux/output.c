@@ -93,6 +93,7 @@ static bool output_commit(struct wlr_output *wlr_output, const struct wlr_output
 		output_defer_present(wlr_output, present_event);
 		
 		/* Always emit frame event after successful commit to signal frame completion */
+		wlr_log(WLR_INFO, "termux: emitting frame event after commit");
 		wl_signal_emit_mutable(&wlr_output->events.frame, wlr_output);
 		
 		/* Schedule next frame only when compositor needs it (damage/frame callbacks).
