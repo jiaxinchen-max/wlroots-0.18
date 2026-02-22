@@ -1005,9 +1005,9 @@ int main(int argc, char *argv[]) {
 		wlr_scene_node_lower_to_bottom(&bg_rect->node);
 		
 		/* Request initial frame after adding background */
-		struct wlr_termux_output *output;
+		struct tinywl_output *output;
 		wl_list_for_each(output, &server.outputs, link) {
-			wlr_output_schedule_frame(&output->wlr_output);
+			wlr_output_schedule_frame(output->wlr_output);
 			wlr_log(WLR_INFO, "tinywl: scheduled initial frame for background");
 			break;
 		}
