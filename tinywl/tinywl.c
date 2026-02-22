@@ -628,6 +628,15 @@ static void output_frame(struct wl_listener *listener, void *data) {
 		wlr_log(WLR_ERROR, "tinywl: scene_output_commit failed - checking output state");
 		wlr_log(WLR_ERROR, "tinywl: output->enabled=%s", output->wlr_output->enabled ? "true" : "false");
 		wlr_log(WLR_ERROR, "tinywl: output->current_mode=%p", (void*)output->wlr_output->current_mode);
+		wlr_log(WLR_ERROR, "tinywl: output dimensions: %dx%d", 
+			output->wlr_output->width, output->wlr_output->height);
+		
+		/* Check if this is a custom mode issue */
+		if (!output->wlr_output->current_mode) {
+			wlr_log(WLR_ERROR, "tinywl: no current_mode - this may be why scene_output_commit fails");
+			wlr_log(WLR_ERROR, "tinywl: output custom_mode: width=%d, height=%d, refresh=%d", 
+				output->wlr_output->width, output->wlr_output->height, output->wlr_output->refresh);
+		}
 	}
 
 	struct timespec now;
@@ -691,8 +700,18 @@ static void server_new_output(struct wl_listener *listener, void *data) {
 	}
 
 	/* Atomically applies the new output state. */
-	wlr_output_commit_state(wlr_output, &state);
+	bool commit_result = wlr_output_commit_state(wlr_output, &state);
+	wlr_log(WLR_INFO, "tinywl: output_commit_state returned %s", commit_result ? "true" : "false");
 	wlr_output_state_finish(&state);
+	
+	/* Check if mode was set correctly */
+	if (wlr_output->current_mode) {
+		wlr_log(WLR_INFO, "tinywl: output current_mode set to %dx%d@%dmHz", 
+			wlr_output->current_mode->width, wlr_output->current_mode->height, 
+			wlr_output->current_mode->refresh);
+	} else {
+		wlr_log(WLR_ERROR, "tinywl: output current_mode is still NULL after commit!");
+	}
 
 	/* Allocates and configures our state for this output */
 	struct tinywl_output *output = calloc(1, sizeof(*output));
