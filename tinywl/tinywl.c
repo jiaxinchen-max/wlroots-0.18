@@ -677,7 +677,15 @@ static void xdg_toplevel_map(struct wl_listener *listener, void *data) {
 	/* Request a frame to render the newly mapped window */
 	struct tinywl_output *output;
 	wl_list_for_each(output, &toplevel->server->outputs, link) {
+		wlr_log(WLR_INFO, "tinywl: calling wlr_output_schedule_frame for output %s", output->wlr_output->name);
 		wlr_output_schedule_frame(output->wlr_output);
+		wlr_log(WLR_INFO, "tinywl: wlr_output_schedule_frame completed, needs_frame=%d", output->wlr_output->needs_frame);
+		
+		/* Also damage the whole output to ensure scene graph knows it needs rendering */
+		struct wlr_box output_box = {0};
+		wlr_output_layout_get_box(toplevel->server->output_layout, output->wlr_output, &output_box);
+		wlr_scene_output_damage_whole(wlr_scene_get_scene_output(toplevel->server->scene, output->wlr_output));
+		wlr_log(WLR_INFO, "tinywl: damaged whole output, needs_frame=%d", output->wlr_output->needs_frame);
 	}
 }
 
