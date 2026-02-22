@@ -253,7 +253,7 @@ static void drain_fd(int fd, size_t size) {
 	}
 }
 
-static int resize_timer_handler(void *data) {
+static int __attribute__((unused)) resize_timer_handler(void *data) {
 	struct wlr_termux_backend *backend = data;
 	int w = backend->resize_pending.width;
 	int h = backend->resize_pending.height;
@@ -288,7 +288,7 @@ static int resize_timer_handler(void *data) {
 	return 0;
 }
 
-static void schedule_resize_reinit(struct wlr_termux_backend *backend,
+static void __attribute__((unused)) schedule_resize_reinit(struct wlr_termux_backend *backend,
 		int width, int height, int framerate) {
 	if (backend->resize_pending.timer) {
 		wl_event_source_remove(backend->resize_pending.timer);
