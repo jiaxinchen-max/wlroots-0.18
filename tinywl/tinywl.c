@@ -658,11 +658,17 @@ static void server_new_output(struct wl_listener *listener, void *data) {
 		wlr_output);
 	struct wlr_scene_output *scene_output = wlr_scene_output_create(server->scene, wlr_output);
 	wlr_scene_output_layout_add_output(server->scene_layout, l_output, scene_output);
+
+	/* Test rendering by scheduling an initial frame */
+	wlr_log(WLR_INFO, "tinywl: output setup complete, scheduling test frame");
+	wlr_output_schedule_frame(wlr_output);
 }
 
 static void xdg_toplevel_map(struct wl_listener *listener, void *data) {
 	/* Called when the surface is mapped, or ready to display on-screen. */
 	struct tinywl_toplevel *toplevel = wl_container_of(listener, toplevel, map);
+
+	wlr_log(WLR_INFO, "tinywl: xdg_toplevel mapped, requesting frame");
 
 	wl_list_insert(&toplevel->server->toplevels, &toplevel->link);
 
@@ -807,6 +813,8 @@ static void server_new_xdg_toplevel(struct wl_listener *listener, void *data) {
 	/* This event is raised when a client creates a new toplevel (application window). */
 	struct tinywl_server *server = wl_container_of(listener, server, new_xdg_toplevel);
 	struct wlr_xdg_toplevel *xdg_toplevel = data;
+	
+	wlr_log(WLR_INFO, "tinywl: new xdg_toplevel created");
 
 	/* Allocate a tinywl_toplevel for this surface */
 	struct tinywl_toplevel *toplevel = calloc(1, sizeof(*toplevel));
