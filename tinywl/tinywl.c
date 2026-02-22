@@ -667,6 +667,12 @@ static void xdg_toplevel_map(struct wl_listener *listener, void *data) {
 	wl_list_insert(&toplevel->server->toplevels, &toplevel->link);
 
 	focus_toplevel(toplevel, toplevel->xdg_toplevel->base->surface);
+
+	/* Request a frame to render the newly mapped window */
+	struct tinywl_output *output;
+	wl_list_for_each(output, &toplevel->server->outputs, link) {
+		wlr_output_schedule_frame(output->wlr_output);
+	}
 }
 
 static void xdg_toplevel_unmap(struct wl_listener *listener, void *data) {
