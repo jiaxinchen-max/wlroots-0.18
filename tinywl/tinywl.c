@@ -674,6 +674,28 @@ static void server_new_output(struct wl_listener *listener, void *data) {
 	} else {
 		wlr_log(WLR_INFO, "tinywl: frame event listener list is not empty, registration seems successful");
 	}
+	
+	/* Test frame event emission immediately after registration */
+	wlr_log(WLR_INFO, "tinywl: testing frame event emission immediately after registration");
+	printf("TINYWL: Testing immediate frame emission\n");
+	fflush(stdout);
+	
+	/* Debug the listener setup */
+	wlr_log(WLR_INFO, "tinywl: listener notify function = %p", (void*)output->frame.notify);
+	wlr_log(WLR_INFO, "tinywl: expected function = %p", (void*)output_frame);
+	
+	/* Try calling the function directly first */
+	wlr_log(WLR_INFO, "tinywl: calling output_frame directly");
+	printf("TINYWL: Calling output_frame directly\n");
+	fflush(stdout);
+	output_frame(&output->frame, wlr_output);
+	printf("TINYWL: Direct call completed\n");
+	fflush(stdout);
+	
+	/* Now try signal emission */
+	wl_signal_emit_mutable(&wlr_output->events.frame, wlr_output);
+	printf("TINYWL: Immediate frame emission completed\n");
+	fflush(stdout);
 
 	/* Sets up a listener for the state request event. */
 	output->request_state.notify = output_request_state;
