@@ -64,9 +64,14 @@ static bool copy_buffer_to_lorie(struct wlr_termux_output *output, const struct 
 
 static bool output_commit(struct wlr_output *wlr_output, const struct wlr_output_state *state) {
 	struct wlr_termux_output *output = termux_output_from_output(wlr_output);
+	wlr_log(WLR_DEBUG, "termux: output_commit called, state committed=0x%x", state->committed);
+	
 	if (!output_test(wlr_output, state)) return false;
 	if (output_pending_enabled(wlr_output, state)) {
-		copy_buffer_to_lorie(output, state);
+		wlr_log(WLR_DEBUG, "termux: output is pending enabled, copying buffer");
+		bool buffer_copied = copy_buffer_to_lorie(output, state);
+		wlr_log(WLR_DEBUG, "termux: buffer copy result: %s", buffer_copied ? "success" : "failed");
+		
 		struct wlr_output_event_present present_event = {
 			.commit_seq = wlr_output->commit_seq + 1,
 			.presented = true,
@@ -75,6 +80,7 @@ static bool output_commit(struct wlr_output *wlr_output, const struct wlr_output
 		/* Schedule next frame only when compositor needs it (damage/frame callbacks).
 		 * On first enable, schedule one frame so the initial content is drawn. */
 		if (!wlr_output->enabled) {
+			wlr_log(WLR_DEBUG, "termux: scheduling frame for newly enabled output");
 			wlr_output_schedule_frame(wlr_output);
 		}
 	}
@@ -88,8 +94,24 @@ static bool output_move_cursor(struct wlr_output *wlr_output, int x, int y) {
 	return true;
 }
 
+static int frame_timer_handler(void *data) {
+	struct wlr_termux_output *output = data;
+	wlr_log(WLR_DEBUG, "termux: frame timer triggered");
+	wl_signal_emit_mutable(&output->wlr_output.events.frame, &output->wlr_output);
+	
+	/* Reschedule the timer for continuous refresh */
+	if (output->frame_timer) {
+		int refresh_ms = 1000 / (output->wlr_output.refresh > 0 ? output->wlr_output.refresh / 1000 : 60);
+		wl_event_source_timer_update(output->frame_timer, refresh_ms);
+	}
+	return 0;
+}
+
 static void output_destroy(struct wlr_output *wlr_output) {
 	struct wlr_termux_output *output = termux_output_from_output(wlr_output);
+	if (output->frame_timer) {
+		wl_event_source_remove(output->frame_timer);
+	}
 	wl_list_remove(&output->link);
 	termux_render_disconnect();
 	free(output);
@@ -139,6 +161,14 @@ struct wlr_output *wlr_termux_add_output(struct wlr_backend *backend,
 	output->wlr_output.enabled = true;
 	wlr_output_set_name(&output->wlr_output, "TERMUX-1");
 	wlr_output_set_description(&output->wlr_output, "Termux display client");
+
+	/* Set up frame timer for regular refresh */
+	int refresh_ms = 1000 / (refresh_mhz > 0 ? refresh_mhz : 60);
+	output->frame_timer = wl_event_loop_add_timer(termux->event_loop, frame_timer_handler, output);
+	if (output->frame_timer) {
+		wl_event_source_timer_update(output->frame_timer, refresh_ms);
+		wlr_log(WLR_DEBUG, "termux: frame timer set to %dms intervals", refresh_ms);
+	}
 
 	wl_list_insert(&termux->outputs, &output->link);
 	if (termux->started) {

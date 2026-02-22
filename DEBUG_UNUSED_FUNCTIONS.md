@@ -38,6 +38,19 @@
   - 状态: 注释掉了输入设备创建
   - 恢复方法: 取消注释 `termux_input_create_devices(backend);`
 
+### 3. 输出渲染问题修复 (调试用)
+- **backend/termux/output.c** 添加了frame定时器机制
+  - 状态: 添加了 `frame_timer` 字段和相关处理函数
+  - 原因: termux backend缺少定期触发frame事件的机制
+  - 包含文件: `include/backend/termux.h` (添加frame_timer字段)
+  - 新增函数: `frame_timer_handler`
+  - 修改函数: `output_destroy`, `wlr_termux_add_output`
+
+- **tinywl/tinywl.c** 添加了调试日志
+  - 状态: 在 `output_frame` 函数中添加了调试输出
+  - 原因: 帮助诊断渲染问题
+  - 恢复方法: 移除调试日志
+
 ### 3. tinywl/tinywl.c 中的事件监听器注册
 在main函数中，以下事件监听器注册被注释掉：
 ```c

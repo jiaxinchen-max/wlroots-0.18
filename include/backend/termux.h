@@ -44,6 +44,8 @@ struct wlr_termux_output {
 	struct wlr_output wlr_output;
 	struct wlr_termux_backend *backend;
 	struct wl_list link;
+	
+	struct wl_event_source *frame_timer;
 };
 
 struct wlr_termux_pointer {
