@@ -500,6 +500,8 @@ static void server_cursor_motion(struct wl_listener *listener, void *data) {
 	 * pointer motion event (i.e. a delta) */
 	struct tinywl_server *server =
 		wl_container_of(listener, server, cursor_motion);
+	
+	wlr_log(WLR_DEBUG, "tinywl: cursor motion event");
 	struct wlr_pointer_motion_event *event = data;
 	/* The cursor doesn't move unless we tell it to. The cursor automatically
 	 * handles constraining the motion to the output layout, as well as any
@@ -522,8 +524,10 @@ static void server_cursor_motion_absolute(
 	struct tinywl_server *server =
 		wl_container_of(listener, server, cursor_motion_absolute);
 	struct wlr_pointer_motion_absolute_event *event = data;
+	wlr_log(WLR_INFO, "tinywl: cursor absolute motion x=%.3f y=%.3f", event->x, event->y);
 	wlr_cursor_warp_absolute(server->cursor, &event->pointer->base, event->x,
 		event->y);
+	wlr_log(WLR_INFO, "tinywl: cursor warped to x=%.1f y=%.1f", server->cursor->x, server->cursor->y);
 	process_cursor_motion(server, event->time_msec);
 }
 
@@ -1031,6 +1035,10 @@ int main(int argc, char *argv[]) {
 	 * images are available at all scale factors on the screen (necessary for
 	 * HiDPI support). */
 	server.cursor_mgr = wlr_xcursor_manager_create(NULL, 24);
+	
+	/* Set a default cursor image */
+	wlr_log(WLR_INFO, "tinywl: setting default cursor image");
+	wlr_xcursor_manager_set_cursor_image(server.cursor_mgr, "default", server.cursor);
 
 	/*
 	 * wlr_cursor *only* displays an image on screen. It does not move around
