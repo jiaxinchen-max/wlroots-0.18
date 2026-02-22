@@ -150,6 +150,15 @@ struct wlr_allocator *allocator_autocreate_with_drm_fd(
 	return NULL;
 }
 
+#if WLR_HAS_TERMUX_BACKEND
+static void backend_get_allocator(struct wlr_backend *backend, void *data) {
+	struct wlr_allocator **allocator = data;
+	if (wlr_backend_is_termux(backend)) {
+		*allocator = wlr_termux_backend_get_allocator(backend);
+	}
+}
+#endif
+
 struct wlr_allocator *wlr_allocator_autocreate(struct wlr_backend *backend,
 		struct wlr_renderer *renderer) {
 #if WLR_HAS_TERMUX_BACKEND
@@ -174,15 +183,6 @@ struct wlr_allocator *wlr_allocator_autocreate(struct wlr_backend *backend,
 
 	return allocator_autocreate_with_drm_fd(backend_caps, renderer, drm_fd);
 }
-
-#if WLR_HAS_TERMUX_BACKEND
-static void backend_get_allocator(struct wlr_backend *backend, void *data) {
-	struct wlr_allocator **allocator = data;
-	if (wlr_backend_is_termux(backend)) {
-		*allocator = wlr_termux_backend_get_allocator(backend);
-	}
-}
-#endif
 
 void wlr_allocator_destroy(struct wlr_allocator *alloc) {
 	if (alloc == NULL) {
