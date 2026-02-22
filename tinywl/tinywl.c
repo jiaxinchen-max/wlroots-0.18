@@ -580,12 +580,27 @@ static void output_frame(struct wl_listener *listener, void *data) {
 	printf("*** TINYWL: OUTPUT_FRAME PROCESSING (frame %d) ***\n", frame_count);
 	fflush(stdout);
 
+	wlr_log(WLR_INFO, "tinywl: looking for scene_output for output %s (%p)", 
+		output->wlr_output->name, (void*)output->wlr_output);
+		
 	struct wlr_scene_output *scene_output = wlr_scene_get_scene_output(
 		scene, output->wlr_output);
 
 	if (!scene_output) {
-		wlr_log(WLR_ERROR, "tinywl: no scene_output found");
-		return;
+		wlr_log(WLR_ERROR, "tinywl: no scene_output found for output %s (%p)", 
+			output->wlr_output->name, (void*)output->wlr_output);
+		
+		/* Try to recreate scene_output */
+		wlr_log(WLR_INFO, "tinywl: attempting to recreate scene_output");
+		scene_output = wlr_scene_output_create(scene, output->wlr_output);
+		if (scene_output) {
+			wlr_log(WLR_INFO, "tinywl: successfully recreated scene_output (%p)", (void*)scene_output);
+		} else {
+			wlr_log(WLR_ERROR, "tinywl: failed to recreate scene_output");
+			return;
+		}
+	} else {
+		wlr_log(WLR_INFO, "tinywl: found scene_output (%p)", (void*)scene_output);
 	}
 
 	/* Log scene tree info */
