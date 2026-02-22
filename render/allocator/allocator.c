@@ -18,6 +18,11 @@
 #include "render/allocator/gbm.h"
 #endif
 
+#if WLR_HAS_TERMUX_BACKEND
+#include "backend/multi.h"
+#include "backend/termux.h"
+#endif
+
 void wlr_allocator_init(struct wlr_allocator *alloc,
 		const struct wlr_allocator_interface *impl, uint32_t buffer_caps) {
 	assert(impl && impl->destroy && impl->create_buffer);
@@ -147,6 +152,19 @@ struct wlr_allocator *allocator_autocreate_with_drm_fd(
 
 struct wlr_allocator *wlr_allocator_autocreate(struct wlr_backend *backend,
 		struct wlr_renderer *renderer) {
+#if WLR_HAS_TERMUX_BACKEND
+	struct wlr_allocator *allocator = NULL;
+	if (wlr_backend_is_multi(backend)) {
+		wlr_multi_for_each_backend(backend, backend_get_allocator, &allocator);
+	} else {
+		backend_get_allocator(backend, &allocator);
+	}
+
+	if (allocator) {
+		return allocator;
+	}
+#endif
+
 	uint32_t backend_caps = backend_get_buffer_caps(backend);
 	// Note, drm_fd may be negative if unavailable
 	int drm_fd = wlr_backend_get_drm_fd(backend);
@@ -156,6 +174,15 @@ struct wlr_allocator *wlr_allocator_autocreate(struct wlr_backend *backend,
 
 	return allocator_autocreate_with_drm_fd(backend_caps, renderer, drm_fd);
 }
+
+#if WLR_HAS_TERMUX_BACKEND
+static void backend_get_allocator(struct wlr_backend *backend, void *data) {
+	struct wlr_allocator **allocator = data;
+	if (wlr_backend_is_termux(backend)) {
+		*allocator = wlr_termux_backend_get_allocator(backend);
+	}
+}
+#endif
 
 void wlr_allocator_destroy(struct wlr_allocator *alloc) {
 	if (alloc == NULL) {

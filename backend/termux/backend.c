@@ -2,7 +2,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <wlr/util/log.h>
+#include <wlr/render/allocator.h>
 #include "backend/termux.h"
+#include "render/allocator/shm.h"
 
 struct wlr_termux_backend *termux_backend_from_backend(struct wlr_backend *b) {
 	assert(wlr_backend_is_termux(b));
@@ -71,4 +73,13 @@ struct wlr_backend *wlr_termux_backend_create(struct wl_event_loop *loop, const 
 
 bool wlr_backend_is_termux(struct wlr_backend *backend) {
 	return backend && backend->impl == &backend_impl;
+}
+
+struct wlr_allocator *wlr_termux_backend_get_allocator(struct wlr_backend *backend) {
+	if (!wlr_backend_is_termux(backend)) {
+		return NULL;
+	}
+	// Termux backend uses shared memory allocator for simplicity
+	// This is compatible with our software rendering approach
+	return wlr_shm_allocator_create();
 }

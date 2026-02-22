@@ -11,6 +11,8 @@
 #include <wlr/types/wlr_pointer.h>
 #include <wlr/types/wlr_touch.h>
 
+struct wlr_allocator;
+
 /* Simple thread-safe queue for async present */
 struct termux_present_queue {
 	struct wl_list buffers;
@@ -82,6 +84,8 @@ struct wlr_termux_backend *termux_backend_from_backend(struct wlr_backend *wlr_b
 
 void termux_input_create_devices(struct wlr_termux_backend *backend);
 void termux_input_destroy(struct wlr_termux_backend *backend);
+
+struct wlr_allocator *wlr_termux_backend_get_allocator(struct wlr_backend *backend);
 
 /* libtermux-render wrapper; use <termux/render/render.h> and <termux/render/buffer.h> where you need library types. */
 int termux_render_connect(int width, int height, int refresh);

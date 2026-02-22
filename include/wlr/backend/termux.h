@@ -8,6 +8,8 @@
 #include <wlr/backend.h>
 #include <wlr/types/wlr_output.h>
 
+struct wlr_allocator;
+
 struct wlr_backend *wlr_termux_backend_create(struct wl_event_loop *loop,
 	const char *socket_path);
 
@@ -20,5 +22,11 @@ struct wlr_output *wlr_termux_add_output(struct wlr_backend *backend,
 
 bool wlr_backend_is_termux(struct wlr_backend *backend);
 bool wlr_output_is_termux(struct wlr_output *output);
+
+/**
+ * Get the allocator for the termux backend.
+ * Returns a shared memory allocator suitable for software rendering.
+ */
+struct wlr_allocator *wlr_termux_backend_get_allocator(struct wlr_backend *backend);
 
 #endif

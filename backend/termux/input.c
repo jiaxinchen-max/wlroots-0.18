@@ -81,7 +81,7 @@ typedef struct {
 #define LORIE_EVENT_SIZE 32
 
 static const struct wlr_pointer_impl termux_pointer_impl = {
-	.name = "termux-pointer",
+	.name = "Termux Virtual Mouse",
 };
 
 static const struct wlr_touch_impl termux_touch_impl = {
@@ -372,7 +372,7 @@ void termux_input_create_devices(struct wlr_termux_backend *backend) {
 		wlr_log(WLR_ERROR, "termux: failed to allocate pointer");
 		return;
 	}
-	wlr_pointer_init(&backend->pointer->wlr_pointer, &termux_pointer_impl, "termux-pointer");
+	wlr_pointer_init(&backend->pointer->wlr_pointer, &termux_pointer_impl, "Termux Virtual Mouse");
 	backend->pointer->wlr_pointer.output_name = strdup(output_name);
 	backend->pointer->backend = backend;
 	wlr_log(WLR_INFO, "termux: emitting new_input signal for pointer");

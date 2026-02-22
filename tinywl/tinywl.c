@@ -692,9 +692,8 @@ static void server_new_output(struct wl_listener *listener, void *data) {
 		wlr_log(WLR_INFO, "tinywl: blue background added at %dx%d", wlr_output->width, wlr_output->height);
 	}
 
-	/* Force software cursor rendering for this output */
-	wlr_log(WLR_INFO, "tinywl: enabling software cursors for output");
-	wlr_output_lock_software_cursors(wlr_output, true);
+	/* Let compositor handle cursor rendering naturally */
+	wlr_log(WLR_INFO, "tinywl: cursor rendering will be handled by compositor");
 }
 
 static void xdg_toplevel_map(struct wl_listener *listener, void *data) {
