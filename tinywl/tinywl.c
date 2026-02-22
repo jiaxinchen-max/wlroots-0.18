@@ -595,6 +595,16 @@ static void output_frame(struct wl_listener *listener, void *data) {
 		toplevel_count++;
 	}
 	wlr_log(WLR_INFO, "tinywl: scene has %d toplevels", toplevel_count);
+	
+	/* Check if scene tree has any children */
+	int scene_children = 0;
+	struct wlr_scene_node *child;
+	wl_list_for_each(child, &scene->tree.children, link) {
+		scene_children++;
+		wlr_log(WLR_INFO, "tinywl: scene child type=%d, enabled=%s", 
+			child->type, child->enabled ? "true" : "false");
+	}
+	wlr_log(WLR_INFO, "tinywl: scene tree has %d children total", scene_children);
 
 	/* Render the scene if needed and commit the output */
 	bool committed = wlr_scene_output_commit(scene_output, NULL);
