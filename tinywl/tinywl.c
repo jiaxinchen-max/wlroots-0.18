@@ -621,6 +621,13 @@ static void output_frame(struct wl_listener *listener, void *data) {
 	wlr_log(WLR_INFO, "tinywl: forcing frame scheduling");
 	wlr_output_schedule_frame(output->wlr_output);
 	
+	/* Try to build state first to see if that's where it fails */
+	struct wlr_output_state test_state;
+	wlr_output_state_init(&test_state);
+	bool build_ok = wlr_scene_output_build_state(scene_output, &test_state, NULL);
+	wlr_log(WLR_INFO, "tinywl: scene_output_build_state returned %s", build_ok ? "true" : "false");
+	wlr_output_state_finish(&test_state);
+	
 	bool committed = wlr_scene_output_commit(scene_output, NULL);
 	wlr_log(WLR_INFO, "tinywl: scene_output_commit returned %s", committed ? "true" : "false");
 	

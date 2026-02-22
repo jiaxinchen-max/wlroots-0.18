@@ -107,8 +107,9 @@ static bool output_commit(struct wlr_output *wlr_output, const struct wlr_output
 		}
 	}
 	
-	/* DO NOT send frame event here - this causes recursion! */
-	wlr_log(WLR_INFO, "termux: commit completed, NOT sending frame event to avoid recursion");
+	/* Send frame event to request next frame - this is safe after buffer is processed */
+	wlr_log(WLR_INFO, "termux: commit completed, sending frame event for next frame");
+	wlr_output_send_frame(wlr_output);
 	return true;
 }
 
