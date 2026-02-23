@@ -81,7 +81,7 @@ typedef struct {
 #define LORIE_EVENT_SIZE 32
 
 static const struct wlr_pointer_impl termux_pointer_impl = {
-	.name = "Termux Virtual Mouse",
+	.name = "termux-pointer",
 };
 
 static const struct wlr_touch_impl termux_touch_impl = {
@@ -358,10 +358,11 @@ static int termux_input_readable(int fd, uint32_t mask, void *data) {
 }
 
 void termux_input_create_devices(struct wlr_termux_backend *backend) {
+	wlr_log(WLR_INFO, "termux: creating input devices");
+	
 	int conn_fd = termux_render_get_conn_fd();
 	if (conn_fd < 0) {
-		wlr_log(WLR_DEBUG, "termux: no conn_fd for input");
-		return;
+		wlr_log(WLR_INFO, "termux: no conn_fd yet, but creating input devices anyway");
 	}
 
 	struct wlr_termux_output *out = termux_backend_first_output(backend);
@@ -372,7 +373,7 @@ void termux_input_create_devices(struct wlr_termux_backend *backend) {
 		wlr_log(WLR_ERROR, "termux: failed to allocate pointer");
 		return;
 	}
-	wlr_pointer_init(&backend->pointer->wlr_pointer, &termux_pointer_impl, "Termux Virtual Mouse");
+	wlr_pointer_init(&backend->pointer->wlr_pointer, &termux_pointer_impl, "termux-pointer");
 	backend->pointer->wlr_pointer.output_name = strdup(output_name);
 	backend->pointer->backend = backend;
 	wlr_log(WLR_INFO, "termux: emitting new_input signal for pointer");
@@ -426,24 +427,20 @@ void termux_input_create_devices(struct wlr_termux_backend *backend) {
 	wlr_log(WLR_INFO, "termux: emitting new_input signal for keyboard");
 	wl_signal_emit_mutable(&backend->backend.events.new_input, &backend->keyboard->wlr_keyboard.base);
 
-	backend->input_event = wl_event_loop_add_fd(backend->event_loop, conn_fd,
-		WL_EVENT_READABLE, termux_input_readable, backend);
-	if (!backend->input_event) {
-		wlr_log(WLR_ERROR, "termux: failed to add conn_fd to event loop");
-		wlr_keyboard_finish(&backend->keyboard->wlr_keyboard);
-		free(backend->keyboard);
-		backend->keyboard = NULL;
-		wlr_touch_finish(&backend->touch->wlr_touch);
-		free(backend->touch->wlr_touch.output_name);
-		free(backend->touch);
-		backend->touch = NULL;
-		wlr_pointer_finish(&backend->pointer->wlr_pointer);
-		free(backend->pointer->wlr_pointer.output_name);
-		free(backend->pointer);
-		backend->pointer = NULL;
-		return;
+	/* Only set up event listening if we have a valid conn_fd */
+	if (conn_fd >= 0) {
+		backend->input_event = wl_event_loop_add_fd(backend->event_loop, conn_fd,
+			WL_EVENT_READABLE, termux_input_readable, backend);
+		if (!backend->input_event) {
+			wlr_log(WLR_ERROR, "termux: failed to add conn_fd to event loop");
+		} else {
+			wlr_log(WLR_INFO, "termux: input event listener added");
+		}
+	} else {
+		wlr_log(WLR_INFO, "termux: input devices created, event listener will be added later");
 	}
-	wlr_log(WLR_INFO, "termux: input devices and conn_fd listener added");
+	
+	wlr_log(WLR_INFO, "termux: input device creation completed");
 }
 
 void termux_input_destroy(struct wlr_termux_backend *backend) {
