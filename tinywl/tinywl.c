@@ -533,10 +533,8 @@ static void server_cursor_motion_absolute(
 	struct tinywl_server *server =
 		wl_container_of(listener, server, cursor_motion_absolute);
 	struct wlr_pointer_motion_absolute_event *event = data;
-	wlr_log(WLR_INFO, "tinywl: cursor absolute motion x=%.3f y=%.3f", event->x, event->y);
 	wlr_cursor_warp_absolute(server->cursor, &event->pointer->base, event->x,
 		event->y);
-	wlr_log(WLR_INFO, "tinywl: cursor warped to x=%.1f y=%.1f", server->cursor->x, server->cursor->y);
 	process_cursor_motion(server, event->time_msec);
 }
 
@@ -605,7 +603,7 @@ static const uint64_t bitmap_font[256] = {
 	['9'] = 0x3C66667C60603C00ULL, // 9
 };
 
-/* Draw a single character using bitmap font */
+/* Draw a single character using bitmap font with 2x scaling */
 static void draw_char(uint32_t *pixels, int buf_width, int x, int y, char c, uint32_t color) {
 	uint64_t bitmap = bitmap_font[(unsigned char)c];
 	
@@ -613,10 +611,15 @@ static void draw_char(uint32_t *pixels, int buf_width, int x, int y, char c, uin
 		uint8_t line = (bitmap >> (56 - row * 8)) & 0xFF;
 		for (int col = 0; col < 8; col++) {
 			if (line & (0x80 >> col)) {
-				int px = x + col;
-				int py = y + row;
-				if (px >= 0 && px < buf_width && py >= 0) {
-					pixels[py * buf_width + px] = color;
+				// Draw 2x2 pixel block for each bit
+				for (int dy = 0; dy < 2; dy++) {
+					for (int dx = 0; dx < 2; dx++) {
+						int px = x + col * 2 + dx;
+						int py = y + row * 2 + dy;
+						if (px >= 0 && px < buf_width && py >= 0) {
+							pixels[py * buf_width + px] = color;
+						}
+					}
 				}
 			}
 		}
@@ -625,7 +628,7 @@ static void draw_char(uint32_t *pixels, int buf_width, int x, int y, char c, uin
 
 /* Create a text buffer using simple bitmap font */
 static struct wlr_buffer *create_fps_text_buffer_bitmap(struct wlr_allocator *allocator, float fps) {
-	int width = 100, height = 20;
+	int width = 160, height = 40; // 约为 1024x768 的 2% (更大更清晰)
 	
 	/* Create DRM format for ARGB8888 */
 	struct wlr_drm_format format = {
@@ -675,10 +678,10 @@ static struct wlr_buffer *create_fps_text_buffer_bitmap(struct wlr_allocator *al
 	char fps_text[16];
 	snprintf(fps_text, sizeof(fps_text), "FPS:%.0f", fps);
 	
-	int x = 4, y = 6;
-	for (int i = 0; fps_text[i] && x < width - 8; i++) {
+	int x = 8, y = 8; // More padding
+	for (int i = 0; fps_text[i] && x < width - 16; i++) {
 		draw_char(pixels, buf_width, x, y, fps_text[i], text_color);
-		x += 8; // Character width
+		x += 16; // Character width * 2 (for 2x scaling)
 	}
 	
 	/* End buffer access */
@@ -715,7 +718,7 @@ static void update_fps_display(struct tinywl_server *server, struct wlr_output *
 			if (server->fps_text) {
 				/* Position at top-right corner */
 				wlr_scene_node_set_position(&server->fps_text->node, 
-					output->width - 110, 10);
+					output->width - 170, 10);
 			}
 			
 			wlr_buffer_drop(fps_buffer); /* Scene takes a reference */
