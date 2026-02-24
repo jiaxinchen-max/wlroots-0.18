@@ -4,7 +4,7 @@ git add .;git commit -m 'bug fix';git push
 /workspace:
 mkdir -p /tmp/.termux-build;
 sudo service apache2 start;
-cd wlroots/;git pull;replace_termux_prefix.sh;cd ..;tar -zcf wlroots.tar.gz wlroots/;sha256sum wlroots.tar.gz;sudo mv wlroots.tar.gz /var/www/html/termux-packages/
+cd wlroots/;git pull;./replace_termux_prefix.sh;cd ..;tar -zcf wlroots.tar.gz wlroots/;sha256sum wlroots.tar.gz;sudo mv wlroots.tar.gz /var/www/html/termux-packages/
 
 /workspace/termux-package:
 rm /data/data/.built-packages/wlroots;./build-package.sh -s wlroots
