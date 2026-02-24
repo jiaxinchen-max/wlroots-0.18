@@ -583,40 +583,40 @@ static void server_cursor_frame(struct wl_listener *listener, void *data) {
 	wlr_seat_pointer_notify_frame(server->seat);
 }
 
-/* Simple 8x8 bitmap font for digits and letters */
+/* Simple 8x8 bitmap font for digits and letters (corrected bit order) */
 static const uint64_t bitmap_font[256] = {
-	['F'] = 0x7E06067E06060600ULL, // F
-	['P'] = 0x7E66667E06060600ULL, // P  
-	['S'] = 0x3C66603C06663C00ULL, // S
-	[':'] = 0x0018180018180000ULL, // :
+	['F'] = 0x7F030F0303030000ULL, // F
+	['P'] = 0x7F33337F03030000ULL, // P  
+	['S'] = 0x3E63070E38633E00ULL, // S
+	[':'] = 0x0000180018000000ULL, // :
 	['.'] = 0x0000000000181800ULL, // .
 	[' '] = 0x0000000000000000ULL, // space
-	['0'] = 0x3C66666666663C00ULL, // 0
-	['1'] = 0x1838181818187E00ULL, // 1
-	['2'] = 0x3C66603C06067E00ULL, // 2
-	['3'] = 0x3C66603C60663C00ULL, // 3
-	['4'] = 0x6666667E60606000ULL, // 4
-	['5'] = 0x7E06063E60663C00ULL, // 5
-	['6'] = 0x3C06063E66663C00ULL, // 6
-	['7'] = 0x7E60606060606000ULL, // 7
-	['8'] = 0x3C66663C66663C00ULL, // 8
-	['9'] = 0x3C66667C60603C00ULL, // 9
+	['0'] = 0x3E63636363633E00ULL, // 0
+	['1'] = 0x0C1C0C0C0C0C3F00ULL, // 1
+	['2'] = 0x3E63603E03037F00ULL, // 2
+	['3'] = 0x3E63603E60633E00ULL, // 3
+	['4'] = 0x6363637F60606000ULL, // 4
+	['5'] = 0x7F03073E60633E00ULL, // 5
+	['6'] = 0x3E03073F63633E00ULL, // 6
+	['7'] = 0x7F60606060606000ULL, // 7
+	['8'] = 0x3E63633E63633E00ULL, // 8
+	['9'] = 0x3E63637E60603E00ULL, // 9
 };
 
 /* Draw a single character using bitmap font with 2x scaling */
-static void draw_char(uint32_t *pixels, int buf_width, int x, int y, char c, uint32_t color) {
+static void draw_char(uint32_t *pixels, int buf_width, int buf_height, int x, int y, char c, uint32_t color) {
 	uint64_t bitmap = bitmap_font[(unsigned char)c];
 	
 	for (int row = 0; row < 8; row++) {
-		uint8_t line = (bitmap >> (56 - row * 8)) & 0xFF;
+		uint8_t line = (bitmap >> (row * 8)) & 0xFF;  // Read from bottom to top
 		for (int col = 0; col < 8; col++) {
-			if (line & (0x80 >> col)) {
+			if (line & (1 << col)) {  // Read bits from right to left
 				// Draw 2x2 pixel block for each bit
 				for (int dy = 0; dy < 2; dy++) {
 					for (int dx = 0; dx < 2; dx++) {
 						int px = x + col * 2 + dx;
 						int py = y + row * 2 + dy;
-						if (px >= 0 && px < buf_width && py >= 0) {
+						if (px >= 0 && px < buf_width && py >= 0 && py < buf_height) {
 							pixels[py * buf_width + px] = color;
 						}
 					}
@@ -680,7 +680,7 @@ static struct wlr_buffer *create_fps_text_buffer_bitmap(struct wlr_allocator *al
 	
 	int x = 8, y = 8; // More padding
 	for (int i = 0; fps_text[i] && x < width - 16; i++) {
-		draw_char(pixels, buf_width, x, y, fps_text[i], text_color);
+		draw_char(pixels, buf_width, height, x, y, fps_text[i], text_color);
 		x += 16; // Character width * 2 (for 2x scaling)
 	}
 	
