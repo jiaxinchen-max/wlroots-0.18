@@ -628,15 +628,15 @@ static struct wlr_buffer *create_fps_text_buffer_bitmap(struct wlr_allocator *al
 	int width = 100, height = 20;
 	
 	/* Create DRM format for ARGB8888 */
-	struct wlr_drm_format *format = wlr_drm_format_create(DRM_FORMAT_ARGB8888);
-	if (!format) {
-		return NULL;
-	}
+	struct wlr_drm_format format = {
+		.format = DRM_FORMAT_ARGB8888,
+		.len = 0,
+		.capacity = 0,
+		.modifiers = NULL,
+	};
 	
 	/* Create buffer using allocator */
-	struct wlr_buffer *buffer = wlr_allocator_create_buffer(allocator, width, height, format);
-	wlr_drm_format_finish(format);
-	free(format);
+	struct wlr_buffer *buffer = wlr_allocator_create_buffer(allocator, width, height, &format);
 	
 	if (!buffer) {
 		return NULL;
