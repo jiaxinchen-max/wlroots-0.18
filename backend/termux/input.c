@@ -310,7 +310,6 @@ static int termux_input_readable(int fd, uint32_t mask, void *data) {
 	uint8_t buf[LORIE_EVENT_SIZE];
 	ssize_t n = read(fd, buf, sizeof(buf));
 	
-	wlr_log(WLR_DEBUG, "termux: input_readable called, read %zd bytes", n);
 	
 	if (n < 0) {
 		if (errno == EAGAIN || errno == EWOULDBLOCK) {

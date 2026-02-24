@@ -25,7 +25,10 @@
 #include <wlr/types/wlr_xcursor_manager.h>
 #include <wlr/types/wlr_xdg_shell.h>
 #include <wlr/util/log.h>
+#include <wlr/render/pixman.h>
 #include <xkbcommon/xkbcommon.h>
+#include <string.h>
+#include <drm_fourcc.h>
 
 /* For brevity's sake, struct members are annotated where they are used. */
 enum tinywl_cursor_mode {
@@ -64,6 +67,11 @@ struct tinywl_server {
 	struct tinywl_toplevel *grabbed_toplevel;
 	double grab_x, grab_y;
 	struct wlr_box grab_geobox;
+	
+	/* FPS tracking */
+	struct wlr_scene_buffer *fps_text;
+	int frame_count;
+	struct timespec fps_last_update;
 	uint32_t resize_edges;
 
 	struct wlr_output_layout *output_layout;
@@ -578,21 +586,152 @@ static void server_cursor_frame(struct wl_listener *listener, void *data) {
 	wlr_seat_pointer_notify_frame(server->seat);
 }
 
+/* Create a simple text buffer showing FPS */
+static struct wlr_buffer *create_fps_text_buffer(struct wlr_renderer *renderer, 
+		struct wlr_allocator *allocator, float fps) {
+	int width = 100, height = 25;
+	
+	struct wlr_buffer *buffer = wlr_allocator_create_buffer(allocator, width, height, DRM_FORMAT_ARGB8888);
+	if (!buffer) {
+		return NULL;
+	}
+	
+	if (!wlr_renderer_begin_with_buffer(renderer, buffer)) {
+		wlr_buffer_drop(buffer);
+		return NULL;
+	}
+	
+	/* Clear background with semi-transparent black */
+	float clear_color[4] = {0.0f, 0.0f, 0.0f, 0.8f};
+	wlr_renderer_clear(renderer, clear_color);
+	
+	/* Simple bitmap font rendering for "FPS: XX" */
+	/* This is a very basic pixel-level text rendering */
+	char fps_str[16];
+	snprintf(fps_str, sizeof(fps_str), "FPS:%.0f", fps);
+	
+	/* Choose text color based on FPS */
+	float text_color[4];
+	if (fps > 30.0f) {
+		text_color[0] = 0.0f; text_color[1] = 1.0f; text_color[2] = 0.0f; text_color[3] = 1.0f; // Green
+	} else if (fps > 15.0f) {
+		text_color[0] = 1.0f; text_color[1] = 1.0f; text_color[2] = 0.0f; text_color[3] = 1.0f; // Yellow
+	} else {
+		text_color[0] = 1.0f; text_color[1] = 0.0f; text_color[2] = 0.0f; text_color[3] = 1.0f; // Red
+	}
+	
+	/* Draw simple text using pixman renderer directly */
+	if (wlr_renderer_is_pixman(renderer)) {
+		/* For pixman renderer, we can access the pixman image directly */
+		pixman_image_t *image = wlr_pixman_renderer_get_current_image(renderer);
+		if (image) {
+			/* Simple 5x7 bitmap font for basic characters */
+			const char *text = fps_str;
+			int x = 5, y = 8;
+			
+			/* Very basic character rendering - just draw some pixels */
+			uint32_t color = 0xFF00FF00; // Green in ARGB format
+			if (fps <= 15.0f) color = 0xFFFF0000; // Red
+			else if (fps <= 30.0f) color = 0xFFFFFF00; // Yellow
+			
+			/* Draw each character as a simple pattern */
+			for (int i = 0; text[i] && x < width - 10; i++) {
+				char c = text[i];
+				/* Draw a simple 5x7 character representation */
+				for (int dy = 0; dy < 7; dy++) {
+					for (int dx = 0; dx < 5; dx++) {
+						/* Simple pattern for each character */
+						bool pixel = false;
+						switch (c) {
+							case 'F': pixel = (dx == 0) || (dy == 0 && dx < 4) || (dy == 3 && dx < 3); break;
+							case 'P': pixel = (dx == 0) || (dy == 0 && dx < 4) || (dy == 3 && dx < 3) || (dx == 4 && dy < 4); break;
+							case 'S': pixel = (dy == 0) || (dy == 3) || (dy == 6) || (dx == 0 && dy < 4) || (dx == 4 && dy > 2); break;
+							case ':': pixel = (dx == 2 && (dy == 2 || dy == 4)); break;
+							case '0': case '1': case '2': case '3': case '4':
+							case '5': case '6': case '7': case '8': case '9':
+								/* Simple digit patterns */
+								pixel = (dx == 0 || dx == 4 || dy == 0 || dy == 6) && (c != '1');
+								if (c == '1') pixel = (dx == 2);
+								break;
+							default: pixel = false; break;
+						}
+						if (pixel && x + dx < width && y + dy < height) {
+							pixman_image_composite32(PIXMAN_OP_SRC, 
+								pixman_image_create_solid_fill(&(pixman_color_t){
+									.red = (color >> 8) & 0xFF00,
+									.green = (color >> 16) & 0xFF00, 
+									.blue = (color >> 24) & 0xFF00,
+									.alpha = 0xFF00
+								}),
+								NULL, image, 0, 0, 0, 0, x + dx, y + dy, 1, 1);
+						}
+					}
+				}
+				x += 6; /* Character width + spacing */
+			}
+		}
+	}
+	
+	wlr_renderer_end(renderer);
+	return buffer;
+}
+
+static void update_fps_display(struct tinywl_server *server, struct wlr_output *output) {
+	struct timespec now;
+	clock_gettime(CLOCK_MONOTONIC, &now);
+	
+	server->frame_count++;
+	
+	/* Update FPS every second */
+	double elapsed = (now.tv_sec - server->fps_last_update.tv_sec) + 
+		(now.tv_nsec - server->fps_last_update.tv_nsec) / 1e9;
+	
+	if (elapsed >= 1.0) {
+		float fps = server->frame_count / elapsed;
+		
+		/* Create new FPS text buffer */
+		struct wlr_buffer *fps_buffer = create_fps_text_buffer(server->renderer, 
+			server->allocator, fps);
+		
+		if (fps_buffer) {
+			/* Remove old FPS display if it exists */
+			if (server->fps_text) {
+				wlr_scene_node_destroy(&server->fps_text->node);
+			}
+			
+			/* Add new FPS display to scene at top-right corner */
+			server->fps_text = wlr_scene_buffer_create(&server->scene->tree, fps_buffer);
+			if (server->fps_text) {
+				/* Position at top-right corner */
+				wlr_scene_node_set_position(&server->fps_text->node, 
+					output->width - 110, 10);
+			}
+			
+			wlr_buffer_drop(fps_buffer); /* Scene takes a reference */
+		}
+		
+		/* Reset counters */
+		server->frame_count = 0;
+		server->fps_last_update = now;
+		
+		wlr_log(WLR_INFO, "FPS: %.1f", fps);
+	}
+}
+
 static void output_frame(struct wl_listener *listener, void *data) {
 	/* This function is called every time an output is ready to display a frame,
 	 * generally at the output's refresh rate (e.g. 60Hz). */
 	struct tinywl_output *output = wl_container_of(listener, output, frame);
 	struct wlr_scene *scene = output->server->scene;
 
-	wlr_log(WLR_INFO, "tinywl: output_frame called");
+	/* Update FPS display */
+	update_fps_display(output->server, output->wlr_output);
 
 	struct wlr_scene_output *scene_output = wlr_scene_get_scene_output(
 		scene, output->wlr_output);
 
 	/* Render the scene if needed and commit the output */
-	wlr_log(WLR_INFO, "tinywl: calling wlr_scene_output_commit");
 	bool commit_result = wlr_scene_output_commit(scene_output, NULL);
-	wlr_log(WLR_INFO, "tinywl: wlr_scene_output_commit returned %s", commit_result ? "true" : "false");
 
 	struct timespec now;
 	clock_gettime(CLOCK_MONOTONIC, &now);
@@ -1093,6 +1232,11 @@ int main(int argc, char *argv[]) {
 		wlr_backend_destroy(server.backend);
 		return 1;
 	}
+
+	/* Initialize FPS tracking */
+	server.fps_text = NULL;
+	server.frame_count = 0;
+	clock_gettime(CLOCK_MONOTONIC, &server.fps_last_update);
 
 	/* Start the backend. This will enumerate outputs and inputs, become the DRM
 	 * master, etc */

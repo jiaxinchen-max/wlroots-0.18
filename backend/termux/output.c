@@ -102,7 +102,6 @@ static void *present_thread_func(void *data) {
 				}
 			}
 			
-			wlr_log(WLR_DEBUG, "termux: async buffer copy result: %s", ok ? "success" : "failed");
 			wlr_buffer_unlock(buffer);
 		}
 		
@@ -131,7 +130,6 @@ static int present_complete_handler(int fd, uint32_t mask, void *data) {
 	}
 	
 	/* Send frame event, but let scene graph decide if actual rendering is needed */
-	wlr_log(WLR_DEBUG, "termux: present completed, sending frame event");
 	wlr_output_send_frame(&output->wlr_output);
 	
 	return 0;
@@ -144,7 +142,6 @@ static bool output_test(struct wlr_output *wlr_output, const struct wlr_output_s
 			unsupported, SUPPORTED_OUTPUT_STATE);
 		return false;
 	}
-	wlr_log(WLR_DEBUG, "termux: output_test: state committed=0x%x, all supported", state->committed);
 	return true;
 }
 
