@@ -608,9 +608,9 @@ static void draw_char(uint32_t *pixels, int buf_width, int buf_height, int x, in
 	uint64_t bitmap = bitmap_font[(unsigned char)c];
 	
 	for (int row = 0; row < 8; row++) {
-		uint8_t line = (bitmap >> (row * 8)) & 0xFF;  // Read from bottom to top
+		uint8_t line = (bitmap >> (56 - row * 8)) & 0xFF;  // Read from top to bottom (原来的方向)
 		for (int col = 0; col < 8; col++) {
-			if (line & (1 << col)) {  // Read bits from right to left
+			if (line & (1 << col)) {  // Read bits from right to left (修复左右镜像)
 				// Draw 2x2 pixel block for each bit
 				for (int dy = 0; dy < 2; dy++) {
 					for (int dx = 0; dx < 2; dx++) {
