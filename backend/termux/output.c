@@ -83,10 +83,9 @@ static void *present_thread_func(void *data) {
 			void *data = NULL;
 			uint32_t format = 0;
 			size_t stride = 0;
-			bool ok = false;
 			
 			if (wlr_buffer_begin_data_ptr_access(buffer, WLR_BUFFER_DATA_PTR_ACCESS_READ, &data, &format, &stride)) {
-				ok = termux_render_push_frame(data, stride) == 0;
+				termux_render_push_frame(data, stride);
 				wlr_buffer_end_data_ptr_access(buffer);
 			} else {
 				/* Try SHM fallback */
@@ -96,7 +95,7 @@ static void *present_thread_func(void *data) {
 						* (size_t)shm.height;
 					void *ptr = mmap(NULL, s, PROT_READ, MAP_SHARED, shm.fd, shm.offset);
 					if (ptr != MAP_FAILED) {
-						ok = termux_render_push_frame(ptr, (size_t)(shm.stride > 0 ? shm.stride : buffer->width * 4)) == 0;
+						termux_render_push_frame(ptr, (size_t)(shm.stride > 0 ? shm.stride : buffer->width * 4));
 						munmap(ptr, s);
 					}
 				}
