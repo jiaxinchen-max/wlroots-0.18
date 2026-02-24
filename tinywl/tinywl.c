@@ -510,7 +510,6 @@ static void server_cursor_motion(struct wl_listener *listener, void *data) {
 	struct tinywl_server *server =
 		wl_container_of(listener, server, cursor_motion);
 	
-	wlr_log(WLR_DEBUG, "tinywl: cursor motion event");
 	struct wlr_pointer_motion_event *event = data;
 	/* The cursor doesn't move unless we tell it to. The cursor automatically
 	 * handles constraining the motion to the output layout, as well as any
@@ -882,8 +881,6 @@ static void xdg_toplevel_commit(struct wl_listener *listener, void *data) {
 	/* Called when a new surface state is committed. */
 	struct tinywl_toplevel *toplevel = wl_container_of(listener, toplevel, commit);
 
-	wlr_log(WLR_INFO, "tinywl: xdg_toplevel commit, initial_commit=%d", 
-		toplevel->xdg_toplevel->base->initial_commit);
 
 	if (toplevel->xdg_toplevel->base->initial_commit) {
 		/* When an xdg_surface performs an initial commit, the compositor must
