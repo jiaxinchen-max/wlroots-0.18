@@ -151,8 +151,6 @@ static bool output_test(struct wlr_output *wlr_output, const struct wlr_output_s
 
 static bool output_commit(struct wlr_output *wlr_output, const struct wlr_output_state *state) {
 	struct wlr_termux_output *output = termux_output_from_output(wlr_output);
-	static int commit_count = 0;
-	commit_count++;
 	
 	if (!output_test(wlr_output, state)) {
 		wlr_log(WLR_ERROR, "termux: output_test failed!");
