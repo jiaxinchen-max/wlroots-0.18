@@ -152,18 +152,12 @@ static bool output_test(struct wlr_output *wlr_output, const struct wlr_output_s
 static bool output_commit(struct wlr_output *wlr_output, const struct wlr_output_state *state) {
 	struct wlr_termux_output *output = termux_output_from_output(wlr_output);
 	static int commit_count = 0;
-	bool should_log = (commit_count % 60 == 0);
-	
-	if (should_log) {
-		wlr_log(WLR_INFO, "termux: output_commit called, state committed=0x%x (commit %d)", state->committed, commit_count);
-	}
 	commit_count++;
 	
 	if (!output_test(wlr_output, state)) {
 		wlr_log(WLR_ERROR, "termux: output_test failed!");
 		return false;
 	}
-	wlr_log(WLR_DEBUG, "termux: output_test passed");
 	
 	/* Handle buffer commit asynchronously */
 	if ((state->committed & WLR_OUTPUT_STATE_BUFFER) && state->buffer) {
@@ -179,15 +173,9 @@ static bool output_commit(struct wlr_output *wlr_output, const struct wlr_output
 		/* Queue buffer for async processing */
 		present_queue_push(&output->present_queue, present_buffer);
 		
-		if (should_log) {
-			wlr_log(WLR_INFO, "termux: queued buffer for async present");
-		}
-		
-		wlr_log(WLR_DEBUG, "termux: output_commit returning true (async with buffer)");
 		return true;
 	} else {
 		/* No buffer to commit, but still successful */
-		wlr_log(WLR_DEBUG, "termux: output_commit returning true (no buffer)");
 		return true;
 	}
 }

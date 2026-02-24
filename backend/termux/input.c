@@ -166,8 +166,6 @@ static void handle_lorie_mouse(struct wlr_termux_backend *backend,
 
 static void handle_lorie_touch(struct wlr_termux_backend *backend,
 		const lorie_touch_ev *ev, uint32_t time_msec) {
-	wlr_log(WLR_INFO, "termux: touch event - type=%d, id=%d, x=%d, y=%d", 
-		ev->type, ev->id, ev->x, ev->y);
 		
 	if (!backend->touch) {
 		wlr_log(WLR_DEBUG, "termux: no touch device available");
@@ -330,19 +328,13 @@ static int termux_input_readable(int fd, uint32_t mask, void *data) {
 	uint8_t type = buf[0];
 	uint32_t time_msec = (uint32_t)get_current_time_msec();
 	
-	wlr_log(WLR_INFO, "termux: received input event type %d", type);
-
 	if (type == LORIE_EVENT_MOUSE) {
-		wlr_log(WLR_INFO, "termux: handling mouse event");
 		handle_lorie_mouse(backend, (const lorie_mouse_ev *)buf);
 	} else if (type == LORIE_EVENT_TOUCH) {
-		wlr_log(WLR_INFO, "termux: handling touch event");
 		handle_lorie_touch(backend, (const lorie_touch_ev *)buf, time_msec);
 	} else if (type == LORIE_EVENT_KEY) {
-		wlr_log(WLR_INFO, "termux: handling key event");
 		handle_lorie_key(backend, (const lorie_key_ev *)buf);
 	} else if (type == LORIE_EVENT_UNICODE) {
-		wlr_log(WLR_INFO, "termux: handling unicode event");
 		handle_lorie_unicode(backend, (const lorie_unicode_ev *)buf);
 	} else if (type == LORIE_EVENT_SCREEN_SIZE) {
 		const lorie_screen_size_ev *ev = (const lorie_screen_size_ev *)buf;
