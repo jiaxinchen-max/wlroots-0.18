@@ -26,7 +26,6 @@
 #include <wlr/types/wlr_xdg_shell.h>
 #include <wlr/util/log.h>
 #include <xkbcommon/xkbcommon.h>
-#include <cairo/cairo.h>
 #include <string.h>
 #include <drm_fourcc.h>
 
@@ -586,9 +585,47 @@ static void server_cursor_frame(struct wl_listener *listener, void *data) {
 	wlr_seat_pointer_notify_frame(server->seat);
 }
 
-/* Create a text buffer using Cairo */
-static struct wlr_buffer *create_fps_text_buffer_cairo(struct wlr_allocator *allocator, float fps) {
-	int width = 120, height = 30;
+/* Simple 8x8 bitmap font for digits and letters */
+static const uint64_t bitmap_font[256] = {
+	['F'] = 0x7E06067E06060600ULL, // F
+	['P'] = 0x7E66667E06060600ULL, // P  
+	['S'] = 0x3C66603C06663C00ULL, // S
+	[':'] = 0x0018180018180000ULL, // :
+	['.'] = 0x0000000000181800ULL, // .
+	[' '] = 0x0000000000000000ULL, // space
+	['0'] = 0x3C66666666663C00ULL, // 0
+	['1'] = 0x1838181818187E00ULL, // 1
+	['2'] = 0x3C66603C06067E00ULL, // 2
+	['3'] = 0x3C66603C60663C00ULL, // 3
+	['4'] = 0x6666667E60606000ULL, // 4
+	['5'] = 0x7E06063E60663C00ULL, // 5
+	['6'] = 0x3C06063E66663C00ULL, // 6
+	['7'] = 0x7E60606060606000ULL, // 7
+	['8'] = 0x3C66663C66663C00ULL, // 8
+	['9'] = 0x3C66667C60603C00ULL, // 9
+};
+
+/* Draw a single character using bitmap font */
+static void draw_char(uint32_t *pixels, int buf_width, int x, int y, char c, uint32_t color) {
+	uint64_t bitmap = bitmap_font[(unsigned char)c];
+	
+	for (int row = 0; row < 8; row++) {
+		uint8_t line = (bitmap >> (56 - row * 8)) & 0xFF;
+		for (int col = 0; col < 8; col++) {
+			if (line & (0x80 >> col)) {
+				int px = x + col;
+				int py = y + row;
+				if (px >= 0 && px < buf_width && py >= 0) {
+					pixels[py * buf_width + px] = color;
+				}
+			}
+		}
+	}
+}
+
+/* Create a text buffer using simple bitmap font */
+static struct wlr_buffer *create_fps_text_buffer_bitmap(struct wlr_allocator *allocator, float fps) {
+	int width = 100, height = 20;
 	
 	/* Create DRM format for ARGB8888 */
 	struct wlr_drm_format *format = wlr_drm_format_create(DRM_FORMAT_ARGB8888);
@@ -605,56 +642,44 @@ static struct wlr_buffer *create_fps_text_buffer_cairo(struct wlr_allocator *all
 		return NULL;
 	}
 	
-	/* Get buffer data for Cairo */
+	/* Get buffer data */
 	void *data;
-	uint32_t format;
+	uint32_t buf_format;
 	size_t stride;
 	if (!wlr_buffer_begin_data_ptr_access(buffer, WLR_BUFFER_DATA_PTR_ACCESS_WRITE, 
-			&data, &format, &stride)) {
+			&data, &buf_format, &stride)) {
 		wlr_buffer_drop(buffer);
 		return NULL;
 	}
 	
-	/* Create Cairo surface from buffer data */
-	cairo_surface_t *cairo_surface = cairo_image_surface_create_for_data(
-		(unsigned char *)data, CAIRO_FORMAT_ARGB32, width, height, (int)stride);
-	
-	if (cairo_surface_status(cairo_surface) != CAIRO_STATUS_SUCCESS) {
-		cairo_surface_destroy(cairo_surface);
-		wlr_buffer_end_data_ptr_access(buffer);
-		wlr_buffer_drop(buffer);
-		return NULL;
-	}
-	
-	cairo_t *cairo = cairo_create(cairo_surface);
+	uint32_t *pixels = (uint32_t *)data;
+	int buf_width = (int)(stride / 4);
 	
 	/* Clear background with semi-transparent black */
-	cairo_set_source_rgba(cairo, 0.0, 0.0, 0.0, 0.8);
-	cairo_paint(cairo);
-	
-	/* Set text properties */
-	cairo_select_font_face(cairo, "monospace", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
-	cairo_set_font_size(cairo, 14);
+	uint32_t bg_color = 0xCC000000; // Semi-transparent black (ARGB)
+	for (int i = 0; i < width * height; i++) {
+		pixels[i] = bg_color;
+	}
 	
 	/* Choose text color based on FPS */
+	uint32_t text_color;
 	if (fps > 30.0f) {
-		cairo_set_source_rgba(cairo, 0.0, 1.0, 0.0, 1.0); // Green
+		text_color = 0xFF00FF00; // Green (ARGB)
 	} else if (fps > 15.0f) {
-		cairo_set_source_rgba(cairo, 1.0, 1.0, 0.0, 1.0); // Yellow
+		text_color = 0xFFFFFF00; // Yellow (ARGB)
 	} else {
-		cairo_set_source_rgba(cairo, 1.0, 0.0, 0.0, 1.0); // Red
+		text_color = 0xFFFF0000; // Red (ARGB)
 	}
 	
 	/* Render FPS text */
-	char fps_text[32];
-	snprintf(fps_text, sizeof(fps_text), "FPS: %.1f", fps);
+	char fps_text[16];
+	snprintf(fps_text, sizeof(fps_text), "FPS:%.0f", fps);
 	
-	cairo_move_to(cairo, 8, 20);
-	cairo_show_text(cairo, fps_text);
-	
-	/* Clean up Cairo objects */
-	cairo_destroy(cairo);
-	cairo_surface_destroy(cairo_surface);
+	int x = 4, y = 6;
+	for (int i = 0; fps_text[i] && x < width - 8; i++) {
+		draw_char(pixels, buf_width, x, y, fps_text[i], text_color);
+		x += 8; // Character width
+	}
 	
 	/* End buffer access */
 	wlr_buffer_end_data_ptr_access(buffer);
@@ -681,8 +706,8 @@ static void update_fps_display(struct tinywl_server *server, struct wlr_output *
 			server->fps_text = NULL;
 		}
 		
-		/* Create new FPS text buffer using Cairo */
-		struct wlr_buffer *fps_buffer = create_fps_text_buffer_cairo(server->allocator, fps);
+		/* Create new FPS text buffer using bitmap font */
+		struct wlr_buffer *fps_buffer = create_fps_text_buffer_bitmap(server->allocator, fps);
 		
 		if (fps_buffer) {
 			/* Add new FPS display to scene at top-right corner */
@@ -690,7 +715,7 @@ static void update_fps_display(struct tinywl_server *server, struct wlr_output *
 			if (server->fps_text) {
 				/* Position at top-right corner */
 				wlr_scene_node_set_position(&server->fps_text->node, 
-					output->width - 130, 10);
+					output->width - 110, 10);
 			}
 			
 			wlr_buffer_drop(fps_buffer); /* Scene takes a reference */
