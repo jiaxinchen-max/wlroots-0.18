@@ -8,6 +8,68 @@
 #include <wlr/config.h>
 #include "util/shm.h"
 
+#ifdef __ANDROID__
+#include <alloca.h>
+static int shm_unlink(const char *name) {
+    size_t namelen;
+    char *fname;
+
+    /* Construct the filename.  */
+    while (name[0] == '/') ++name;
+
+    if (name[0] == '\0') {
+        /* The name "/" is not supported.  */
+        errno = EINVAL;
+        return -1;
+    }
+
+    namelen = strlen(name);
+    fname = (char *) alloca(sizeof("@TERMUX_PREFIX@/tmp/") - 1 + namelen + 1);
+    memcpy(fname, "@TERMUX_PREFIX@/tmp/", sizeof("@TERMUX_PREFIX@/tmp/") - 1);
+    memcpy(fname + sizeof("@TERMUX_PREFIX@/tmp/") - 1, name, namelen + 1);
+
+    return unlink(fname);
+}
+
+static int shm_open(const char *name, int oflag, mode_t mode) {
+    size_t namelen;
+    char *fname;
+    int fd;
+
+    /* Construct the filename.  */
+    while (name[0] == '/') ++name;
+
+    if (name[0] == '\0') {
+        /* The name "/" is not supported.  */
+        errno = EINVAL;
+        return -1;
+    }
+
+    namelen = strlen(name);
+    fname = (char *) alloca(sizeof("@TERMUX_PREFIX@/tmp/") - 1 + namelen + 1);
+    memcpy(fname, "@TERMUX_PREFIX@/tmp/", sizeof("@TERMUX_PREFIX@/tmp/") - 1);
+    memcpy(fname + sizeof("@TERMUX_PREFIX@/tmp/") - 1, name, namelen + 1);
+
+    fd = open(fname, oflag, mode);
+    if (fd != -1) {
+        /* We got a descriptor.  Now set the FD_CLOEXEC bit.  */
+        int flags = fcntl(fd, F_GETFD, 0);
+        flags |= FD_CLOEXEC;
+        flags = fcntl(fd, F_SETFD, flags);
+
+        if (flags == -1) {
+            /* Something went wrong.  We cannot return the descriptor.  */
+            int save_errno = errno;
+            close(fd);
+            fd = -1;
+            errno = save_errno;
+        }
+    }
+
+    return fd;
+}
+#endif
+
 #define RANDNAME_PATTERN "/wlroots-XXXXXX"
 
 static void randname(char *buf) {
@@ -20,50 +82,13 @@ static void randname(char *buf) {
 	}
 }
 
-#if defined(__ANDROID__)
-/* Android: use LorieBuffer_createRegion from termux-display-client (libtermux-render)
- * instead of POSIX shm_open/shm_unlink (not available in bionic). */
-#include <termux/render/buffer.h>
-
-static int android_shm_open_rw(char *name, size_t size) {
-	randname(name + strlen(RANDNAME_PATTERN) - 6);
-	return LorieBuffer_createRegion(name, size);
-}
-
-int allocate_shm_file(size_t size) {
-	char name[] = RANDNAME_PATTERN;
-	int fd = android_shm_open_rw(name, size);
-	if (fd < 0) {
-		return -1;
-	}
-	return fd;
-}
-
-bool allocate_shm_file_pair(size_t size, int *rw_fd_ptr, int *ro_fd_ptr) {
-	char name[] = RANDNAME_PATTERN;
-	int rw_fd = android_shm_open_rw(name, size);
-	if (rw_fd < 0) {
-		return false;
-	}
-	int ro_fd = dup(rw_fd);
-	if (ro_fd < 0) {
-		close(rw_fd);
-		return false;
-	}
-	*rw_fd_ptr = rw_fd;
-	*ro_fd_ptr = ro_fd;
-	return true;
-}
-
-#else
-/* POSIX shm_open/shm_unlink from system (e.g. librt) */
-
 static int excl_shm_open(char *name) {
 	int retries = 100;
 	do {
 		randname(name + strlen(RANDNAME_PATTERN) - 6);
 
 		--retries;
+		// CLOEXEC is guaranteed to be set by shm_open
 		int fd = shm_open(name, O_RDWR | O_CREAT | O_EXCL, 0600);
 		if (fd >= 0) {
 			return fd;
@@ -100,6 +125,7 @@ bool allocate_shm_file_pair(size_t size, int *rw_fd_ptr, int *ro_fd_ptr) {
 		return false;
 	}
 
+	// CLOEXEC is guaranteed to be set by shm_open
 	int ro_fd = shm_open(name, O_RDONLY, 0);
 	if (ro_fd < 0) {
 		shm_unlink(name);
@@ -109,6 +135,8 @@ bool allocate_shm_file_pair(size_t size, int *rw_fd_ptr, int *ro_fd_ptr) {
 
 	shm_unlink(name);
 
+	// Make sure the file cannot be re-opened in read-write mode (e.g. via
+	// "/proc/self/fd/" on Linux)
 	if (fchmod(rw_fd, 0) != 0) {
 		close(rw_fd);
 		close(ro_fd);
@@ -129,4 +157,3 @@ bool allocate_shm_file_pair(size_t size, int *rw_fd_ptr, int *ro_fd_ptr) {
 	*ro_fd_ptr = ro_fd;
 	return true;
 }
-#endif

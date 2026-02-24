@@ -17,6 +17,13 @@
 #include "config.h"
 #include "sockets.h"
 
+#ifdef __TERMUX__
+#ifdef XWAYLAND_PATH
+#undef XWAYLAND_PATH
+#endif
+#define XWAYLAND_PATH "@TERMUX_PREFIX@/bin/Xwayland"
+#endif
+
 static void safe_close(int fd) {
 	if (fd >= 0) {
 		close(fd);
