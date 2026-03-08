@@ -45,7 +45,7 @@ int termux_render_get_conn_fd(void) {
 	if (!connected) {
 		return -1;
 	}
-	return get_conn_fd();
+	return get_connFd();
 }
 
 void termux_render_get_size(int *width, int *height) {

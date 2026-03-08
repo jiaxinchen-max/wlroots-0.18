@@ -1,5 +1,5 @@
 /*
- * Termux input: read lorieEvent from conn_fd (libtermux-render get_conn_fd),
+ * Termux input: read lorieEvent from conn_fd (libtermux-render get_connFd),
  * dispatch to wlr_pointer, wlr_touch, wlr_keyboard. Event layout matches
  * termux-display-client include/render.h lorieEvent union.
  */
@@ -13,6 +13,7 @@
 #include <wlr/interfaces/wlr_keyboard.h>
 #include <wlr/interfaces/wlr_pointer.h>
 #include <wlr/interfaces/wlr_touch.h>
+#include <linux/input-event-codes.h>
 #include <wlr/types/wlr_input_device.h>
 #include <wlr/types/wlr_keyboard.h>
 #include <wlr/types/wlr_pointer.h>
@@ -226,8 +227,24 @@ static void handle_lorie_key(struct wlr_termux_backend *backend,
 	if (!backend->keyboard) {
 		return;
 	}
-	/* sendKeyEvent sends key = code + 8; use keycode for wlr_keyboard */
-	uint32_t keycode = (ev->key >= 8) ? (ev->key - 8) : 0;
+	
+	/* Use Android to Linux keycode mapping table for proper key conversion */
+	extern int android_to_linux_keycode[304];
+	uint32_t keycode = 0;
+	
+	if (ev->key < 304 && android_to_linux_keycode[ev->key] != 0) {
+		/* Use the mapping table for proper Android keycode conversion */
+		keycode = android_to_linux_keycode[ev->key];
+		wlr_log(WLR_DEBUG, "termux: key mapped android=%d -> linux=%d", ev->key, keycode);
+	} else if (ev->key >= 8) {
+		/* Fallback to the original simple offset method for unmapped keys */
+		keycode = ev->key - 8;
+		wlr_log(WLR_DEBUG, "termux: key fallback android=%d -> offset=%d", ev->key, keycode);
+	} else {
+		/* Invalid keycode */
+		keycode = 0;
+		wlr_log(WLR_DEBUG, "termux: invalid key android=%d", ev->key);
+	}
 	enum wl_keyboard_key_state state = ev->state ?
 		WL_KEYBOARD_KEY_STATE_PRESSED : WL_KEYBOARD_KEY_STATE_RELEASED;
 	struct wlr_keyboard_key_event wlr_ev = {
