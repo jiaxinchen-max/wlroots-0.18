@@ -19,6 +19,7 @@
 #include <wlr/types/wlr_pointer.h>
 #include <wlr/types/wlr_touch.h>
 #include <wlr/util/log.h>
+#include <termux/render/render.h>
 #include <xkbcommon/xkbcommon.h>
 
 #include "backend/termux.h"
@@ -56,7 +57,7 @@ typedef struct {
 typedef struct {
 	uint8_t t;
 	uint8_t _pad;
-	uint16_t key;   /* Linux keycode + 8 (as sent by sendKeyEvent) */
+	uint16_t key;   /* Android keycode */
 	uint8_t state;  /* key_down */
 } lorie_key_ev;
 
@@ -228,23 +229,14 @@ static void handle_lorie_key(struct wlr_termux_backend *backend,
 		return;
 	}
 	
-	/* Use Android to Linux keycode mapping table for proper key conversion */
-	extern int android_to_linux_keycode[304];
-	uint32_t keycode = 0;
-	
-	if (ev->key < 304 && android_to_linux_keycode[ev->key] != 0) {
-		/* Use the mapping table for proper Android keycode conversion */
-		keycode = android_to_linux_keycode[ev->key];
-		wlr_log(WLR_DEBUG, "termux: key mapped android=%d -> linux=%d", ev->key, keycode);
-	} else if (ev->key >= 8) {
-		/* Fallback to the original simple offset method for unmapped keys */
-		keycode = ev->key - 8;
-		wlr_log(WLR_DEBUG, "termux: key fallback android=%d -> offset=%d", ev->key, keycode);
-	} else {
-		/* Invalid keycode */
-		keycode = 0;
-		wlr_log(WLR_DEBUG, "termux: invalid key android=%d", ev->key);
+	size_t keycode_count =
+		sizeof(android_to_linux_keycode) / sizeof(android_to_linux_keycode[0]);
+	if (ev->key >= keycode_count || android_to_linux_keycode[ev->key] == 0) {
+		wlr_log(WLR_DEBUG, "termux: unmapped android key=%d", ev->key);
+		return;
 	}
+
+	uint32_t keycode = android_to_linux_keycode[ev->key];
 	enum wl_keyboard_key_state state = ev->state ?
 		WL_KEYBOARD_KEY_STATE_PRESSED : WL_KEYBOARD_KEY_STATE_RELEASED;
 	struct wlr_keyboard_key_event wlr_ev = {
