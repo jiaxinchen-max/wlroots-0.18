@@ -1,5 +1,5 @@
 /*
- * Termux input: read lorieEvent from conn_fd (libtermux-render get_connFd),
+ * Termux input: read lorieEvent from conn_fd (libtermux-render get_conn_fd),
  * dispatch to wlr_pointer, wlr_touch, wlr_keyboard. Event layout matches
  * termux-display-client include/render.h lorieEvent union.
  */
