@@ -14,7 +14,8 @@ struct wlr_backend *wlr_termux_backend_create(struct wl_event_loop *loop,
 	const char *socket_path);
 
 /**
- * Add a termux output. Resolution/fps should match what the server expects.
+ * Add a termux output. termux-app controls the final output size; width and
+ * height are only used as a fallback request before the real buffer is returned.
  * The backend must be started after the display server is listening.
  */
 struct wlr_output *wlr_termux_add_output(struct wlr_backend *backend,

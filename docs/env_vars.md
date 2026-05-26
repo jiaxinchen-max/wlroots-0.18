@@ -47,16 +47,10 @@ wlroots reads these environment variables
 ## Termux backend
 
 * *WLR_TERMUX_OUTPUTS*: number of termux outputs (default: 1).
-* *WLR_TERMUX_WIDTH*: width of each output in pixels (default: 1280). Set to
-  match the display client's surface/buffer width to avoid scaling or padding.
-* *WLR_TERMUX_HEIGHT*: height of each output in pixels (default: 720). Set to
-  match the display client's surface/buffer height to avoid scaling or padding.
 
-Resolution flow: wlroots passes these dimensions to libtermux-render
-(setScreenConfig); the display client creates a shared buffer with that size.
-After connect, the Wayland output mode is set to the **actual buffer size**
-returned by the library (LorieBuffer), so the compositor output and the buffer
-stay the same and no extra scaling, cropping or padding is done.
+Resolution flow: termux-app owns the surface size. wlroots connects through
+libtermux-render, reads the actual LorieBuffer size returned by termux-app, and
+sets the Wayland output mode from that size.
 
 To run a compositor (e.g. tinywl) with the termux backend and show output in
 termux-display-client: start the display server (termux-display-client), then

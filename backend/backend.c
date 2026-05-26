@@ -249,26 +249,9 @@ static struct wlr_backend *attempt_termux_backend(struct wl_event_loop *loop) {
 	}
 
 	size_t outputs = parse_outputs_env("WLR_TERMUX_OUTPUTS");
-	unsigned int width = 1280, height = 720;
-	const char *w = getenv("WLR_TERMUX_WIDTH");
-	const char *h = getenv("WLR_TERMUX_HEIGHT");
-	if (w) {
-		char *end;
-		int v = (int)strtol(w, &end, 10);
-		if (*end == '\0' && v > 0) {
-			width = (unsigned int)v;
-		}
-	}
-	if (h) {
-		char *end;
-		int v = (int)strtol(h, &end, 10);
-		if (*end == '\0' && v > 0) {
-			height = (unsigned int)v;
-		}
-	}
 	/* 60 Hz */
 	for (size_t i = 0; i < outputs; ++i) {
-		wlr_termux_add_output(backend, width, height, 60000);
+		wlr_termux_add_output(backend, 1280, 720, 60000);
 	}
 
 	return backend;

@@ -220,7 +220,7 @@ struct wlr_output *wlr_termux_add_output(struct wlr_backend *backend,
 		return NULL;
 	}
 	output->backend = termux;
-	/* Tell libtermux-render desired size (setScreenConfig); client creates buffer to match. */
+	/* termux-app owns the final size; requested dimensions are only fallback. */
 	if (termux_render_connect((int)width, (int)height, (int)refresh_mhz) != 0) {
 		wlr_log(WLR_ERROR, "termux: failed to connect to display server");
 		free(output);
