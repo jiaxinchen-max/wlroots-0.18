@@ -274,7 +274,6 @@ static int __attribute__((unused)) resize_timer_handler(void *data) {
 
 	termux_input_destroy(backend);
 	termux_render_disconnect();
-	sleep(1);
 	if (termux_render_connect(w, h, refresh) != 0) {
 		wlr_log(WLR_ERROR, "termux: resize reconnect failed");
 		return 0;
@@ -320,7 +319,7 @@ static void __attribute__((unused)) schedule_resize_reinit(struct wlr_termux_bac
 	backend->resize_pending.timer = wl_event_loop_add_timer(backend->event_loop,
 		resize_timer_handler, backend);
 	if (backend->resize_pending.timer) {
-		wl_event_source_timer_update(backend->resize_pending.timer, 1000);
+		wl_event_source_timer_update(backend->resize_pending.timer, 0);
 	}
 }
 
