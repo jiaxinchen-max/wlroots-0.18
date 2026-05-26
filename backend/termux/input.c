@@ -349,9 +349,9 @@ static int termux_input_readable(int fd, uint32_t mask, void *data) {
 		if (ev->width > 0 && ev->height > 0) {
 			/* Read the data to keep the protocol in sync, but don't trigger backend reset */
 			drain_fd(fd, ev->name_size);
-			wlr_log(WLR_INFO, "termux: windowChanged event received (%dx%d@%d), data read but backend reset skipped", 
+			wlr_log(WLR_INFO, "termux: windowChanged event received (%dx%d@%d), scheduling backend reset",
 				(int)ev->width, (int)ev->height, (int)ev->framerate);
-			/* Note: schedule_resize_reinit() call removed to prevent backend reset */
+			schedule_resize_reinit(backend, ev->width, ev->height, ev->framerate);
 		}
 	}
 	return 0;
