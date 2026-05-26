@@ -301,6 +301,16 @@ static int __attribute__((unused)) resize_timer_handler(void *data) {
 
 static void __attribute__((unused)) schedule_resize_reinit(struct wlr_termux_backend *backend,
 		int width, int height, int framerate) {
+	struct wlr_termux_output *out = termux_backend_first_output(backend);
+	if (out && out->wlr_output.width == width && out->wlr_output.height == height) {
+		return;
+	}
+	if (backend->resize_pending.timer &&
+			backend->resize_pending.width == width &&
+			backend->resize_pending.height == height &&
+			backend->resize_pending.framerate == framerate) {
+		return;
+	}
 	if (backend->resize_pending.timer) {
 		wl_event_source_remove(backend->resize_pending.timer);
 	}
@@ -347,8 +357,18 @@ static int termux_input_readable(int fd, uint32_t mask, void *data) {
 	} else if (type == LORIE_EVENT_SCREEN_SIZE) {
 		const lorie_screen_size_ev *ev = (const lorie_screen_size_ev *)buf;
 		if (ev->width > 0 && ev->height > 0) {
-			/* Read the data to keep the protocol in sync, but don't trigger backend reset */
 			drain_fd(fd, ev->name_size);
+			struct wlr_termux_output *out = termux_backend_first_output(backend);
+			if (out && out->wlr_output.width == ev->width &&
+					out->wlr_output.height == ev->height) {
+				return 0;
+			}
+			if (backend->resize_pending.timer &&
+					backend->resize_pending.width == ev->width &&
+					backend->resize_pending.height == ev->height &&
+					backend->resize_pending.framerate == ev->framerate) {
+				return 0;
+			}
 			wlr_log(WLR_INFO, "termux: windowChanged event received (%dx%d@%d), scheduling backend reset",
 				(int)ev->width, (int)ev->height, (int)ev->framerate);
 			schedule_resize_reinit(backend, ev->width, ev->height, ev->framerate);
