@@ -57,7 +57,7 @@ typedef struct {
 typedef struct {
 	uint8_t t;
 	uint8_t _pad;
-	uint16_t key;   /* Android keycode */
+	uint16_t key;   /* evdev keycode */
 	uint8_t state;  /* key_down */
 } lorie_key_ev;
 
@@ -228,15 +228,13 @@ static void handle_lorie_key(struct wlr_termux_backend *backend,
 	if (!backend->keyboard) {
 		return;
 	}
-	
-	size_t keycode_count =
-		sizeof(android_to_linux_keycode) / sizeof(android_to_linux_keycode[0]);
-	if (ev->key >= keycode_count || android_to_linux_keycode[ev->key] == 0) {
-		wlr_log(WLR_DEBUG, "termux: unmapped android key=%d", ev->key);
+
+	if (ev->key == 0) {
+		wlr_log(WLR_DEBUG, "termux: invalid evdev key=%d", ev->key);
 		return;
 	}
 
-	uint32_t keycode = android_to_linux_keycode[ev->key];
+	uint32_t keycode = ev->key;
 	enum wl_keyboard_key_state state = ev->state ?
 		WL_KEYBOARD_KEY_STATE_PRESSED : WL_KEYBOARD_KEY_STATE_RELEASED;
 	struct wlr_keyboard_key_event wlr_ev = {

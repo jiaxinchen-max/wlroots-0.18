@@ -25,6 +25,7 @@ int termux_render_connect(int width, int height, int refresh) {
 	}
 	setScreenConfig(width, height, refresh > 0 ? refresh : 60,
 		AHARDWAREBUFFER_FORMAT_R8G8B8X8_UNORM, LORIEBUFFER_AHARDWAREBUFFER);
+	setKeycodeFormat(LORIE_KEYCODE_EVDEV);
 	setExitCallback(on_render_stop);
 	if (connectToRender() != 0) {
 		wlr_log(WLR_ERROR, "termux: connectToRender failed");
