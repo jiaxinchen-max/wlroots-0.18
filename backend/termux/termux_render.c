@@ -92,7 +92,8 @@ int termux_render_push_frame(const void *data, size_t stride_bytes) {
 	}
 	state->waitForNextFrame = 0;
 	state->drawRequested = 1;
-	pthread_cond_signal(&state->cond);
+	if (rendererCond)
+		pthread_cond_signal(rendererCond);
 	lorie_mutex_unlock(&state->lock, &state->lockingPid);
 	LorieBuffer_unlock(buf);
 	return 0;
