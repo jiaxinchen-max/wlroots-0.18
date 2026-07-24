@@ -10,6 +10,45 @@
 
 #ifdef __ANDROID__
 #include <alloca.h>
+#include <sys/syscall.h>
+
+#ifndef __NR_memfd_create
+#if defined __i386__
+#define __NR_memfd_create 356
+#elif defined __x86_64__
+#define __NR_memfd_create 319
+#elif defined __arm__
+#define __NR_memfd_create 385
+#elif defined __aarch64__
+#define __NR_memfd_create 279
+#endif
+#endif
+
+#ifndef MFD_CLOEXEC
+#define MFD_CLOEXEC 0x0001U
+#endif
+
+#ifndef MFD_ALLOW_SEALING
+#define MFD_ALLOW_SEALING 0x0002U
+#endif
+
+static int create_shm_file_android(size_t size) {
+#ifdef __NR_memfd_create
+	int fd = syscall(__NR_memfd_create, "wlroots-shm",
+		MFD_CLOEXEC | MFD_ALLOW_SEALING);
+	if (fd >= 0) {
+		int ret;
+		do {
+			ret = ftruncate(fd, size);
+		} while (ret < 0 && errno == EINTR);
+		if (ret >= 0) {
+			return fd;
+		}
+		close(fd);
+	}
+#endif
+	return -1;
+}
 static int shm_unlink(const char *name) {
     size_t namelen;
     char *fname;
@@ -99,8 +138,15 @@ static int excl_shm_open(char *name) {
 }
 
 int allocate_shm_file(size_t size) {
+#ifdef __ANDROID__
+	int fd = create_shm_file_android(size);
+	if (fd >= 0) {
+		return fd;
+	}
+#endif
+
 	char name[] = RANDNAME_PATTERN;
-	int fd = excl_shm_open(name);
+	fd = excl_shm_open(name);
 	if (fd < 0) {
 		return -1;
 	}

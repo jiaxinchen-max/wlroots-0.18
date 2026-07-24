@@ -68,6 +68,7 @@ struct wlr_termux_output {
 struct termux_present_buffer {
 	struct wlr_buffer *buffer;
 	struct wl_list link;
+	uint32_t commit_seq;
 };
 
 struct wlr_termux_pointer {

@@ -15,6 +15,7 @@
 #include "types/wlr_output.h"
 
 static const uint32_t SUPPORTED_OUTPUT_STATE =
+	WLR_OUTPUT_STATE_BACKEND_OPTIONAL |
 	WLR_OUTPUT_STATE_BUFFER |
 	WLR_OUTPUT_STATE_DAMAGE |
 	WLR_OUTPUT_STATE_ENABLED |
@@ -117,20 +118,26 @@ static void *present_thread_func(void *data) {
 /* Handle present completion events */
 static int present_complete_handler(int fd, uint32_t mask, void *data) {
 	struct wlr_termux_output *output = data;
-	
+	struct wlr_output *wlr_output = &output->wlr_output;
+
 	if ((mask & WL_EVENT_HANGUP) || (mask & WL_EVENT_ERROR)) {
 		wlr_log(WLR_ERROR, "termux: present complete event error");
 		return 0;
 	}
-	
+
 	eventfd_t count = 0;
 	if (eventfd_read(fd, &count) < 0) {
 		return 0;
 	}
-	
-	/* Send frame event, but let scene graph decide if actual rendering is needed */
-	wlr_output_send_frame(&output->wlr_output);
-	
+
+	/* Send present and frame events */
+	struct wlr_output_event_present present_event = {
+		.commit_seq = wlr_output->commit_seq,
+		.presented = true,
+	};
+	wlr_output_send_present(wlr_output, &present_event);
+	wlr_output_send_frame(wlr_output);
+
 	return 0;
 }
 
@@ -147,12 +154,16 @@ static bool output_test(struct wlr_output *wlr_output, const struct wlr_output_s
 
 static bool output_commit(struct wlr_output *wlr_output, const struct wlr_output_state *state) {
 	struct wlr_termux_output *output = termux_output_from_output(wlr_output);
-	
+
 	if (!output_test(wlr_output, state)) {
 		wlr_log(WLR_ERROR, "termux: output_test failed!");
 		return false;
 	}
-	
+
+	if (!output_pending_enabled(wlr_output, state)) {
+		return true;
+	}
+
 	/* Handle buffer commit asynchronously */
 	if ((state->committed & WLR_OUTPUT_STATE_BUFFER) && state->buffer) {
 		struct termux_present_buffer *present_buffer = calloc(1, sizeof(*present_buffer));
@@ -160,13 +171,14 @@ static bool output_commit(struct wlr_output *wlr_output, const struct wlr_output
 			wlr_log(WLR_ERROR, "termux: failed to allocate present buffer");
 			return false;
 		}
-		
+
 		present_buffer->buffer = state->buffer;
+		present_buffer->commit_seq = wlr_output->commit_seq + 1;
 		wlr_buffer_lock(state->buffer);
-		
+
 		/* Queue buffer for async processing */
 		present_queue_push(&output->present_queue, present_buffer);
-		
+
 		return true;
 	} else {
 		/* No buffer to commit, but still successful */
